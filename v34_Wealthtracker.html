@@ -1,0 +1,2242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WealthPulse Local - Portfolio Ledger</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .currency-input-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            width: 100%;
+        }
+        .currency-input-wrapper span {
+            position: absolute;
+            left: 0.5rem;
+            color: #94a3b8;
+            font-weight: 700;
+            font-size: 0.75rem;
+            pointer-events: none;
+        }
+        .currency-input-wrapper input {
+            padding-left: 1.2rem;
+            width: 100%;
+        }
+        /* Custom Tooltip Animation */
+        .tooltip-enter {
+            opacity: 0;
+            transform: translateY(5px) translateX(-50%);
+        }
+        .tooltip-active {
+            opacity: 1;
+            transform: translateY(0) translateX(-50%);
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        /* Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #10b981;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #10b981;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 selection:bg-blue-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useRef, useEffect } = React;
+        const { createPortal } = ReactDOM;
+
+        // --- Icons ---
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const icons = {
+                Plus: <path d="M5 12h14m-7-7v14" />,
+                ChevronDown: <path d="m6 9 6 6 6-6" />,
+                ChevronUp: <path d="m18 15-6-6-6 6" />,
+                BarChart3: <path d="M3 3v18h18M18 17V9M13 17V5M8 17v-3" />,
+                TrendingUp: <path d="m22 7-8.5 8.5L8 10l-6 6" />,
+                Sprout: <path d="M7 20h10M10 20c0-3 1-7 5-7 2 0 3 1 3 3 0 3-5 5-5 5M14 20c0-3-1-7-5-7-2 0-3 1-3 3 0 3 5 5 5 5" />,
+                PiggyBank: <path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2h0V5Z" />,
+                Calendar: <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />,
+                Download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
+                Upload: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />,
+                ShieldCheck: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4" />,
+                Activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
+                Percent: <path d="M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />,
+                Trash2: <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" />,
+                Info: <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm0-7V11m0-4h.01" />,
+                X: <path d="M18 6 6 18M6 6l12 12" />,
+                CheckCircle2: <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm-1.5-6L7 12.5l1.5-1.5 2 2 5-5 1.5 1.5-6.5 6.5z" />,
+                AlertCircle: <path d="M12 8v4m0 4h.01M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z" />,
+                ArrowUpRight: <path d="M7 17L17 7M17 7H7M17 7V17" />,
+                Layers: <g><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" /><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" /><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" /></g>,
+                Minus: <path d="M5 12h14" />,
+                Sliders: <g><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line x1="12" x2="12" y1="21" y2="12" /><line x1="12" x2="12" y1="8" y2="3" /><line x1="20" x2="20" y1="21" y2="16" /><line x1="20" x2="20" y1="12" y2="3" /><line x1="1" x2="7" y1="14" y2="14" /><line x1="9" x2="15" y1="8" y2="8" /><line x1="17" x2="23" y1="16" y2="16" /></g>,
+                Sparkles: <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />,
+                Wallet: <g><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></g>,
+                History: <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8m0 0V4m0 4h4" />
+            };
+
+            return (
+                <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width={size} 
+                    height={size} 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    className={className}
+                >
+                    {icons[name]}
+                </svg>
+            );
+        };
+
+        const Tooltip = ({ text, content }) => {
+            const [visible, setVisible] = useState(false);
+            const body = content || text;
+            return (
+                <span className="relative inline-flex items-center" style={{verticalAlign: 'middle'}}>
+                    <button
+                        onMouseEnter={() => setVisible(true)}
+                        onMouseLeave={() => setVisible(false)}
+                        onFocus={() => setVisible(true)}
+                        onBlur={() => setVisible(false)}
+                        className="text-slate-300 hover:text-slate-500 transition-colors ml-1 focus:outline-none"
+                        tabIndex={-1}
+                        type="button"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                    </button>
+                    {visible && (
+                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-slate-800 text-white text-[10px] font-medium leading-relaxed rounded-lg px-3 py-2 shadow-xl z-50 pointer-events-none normal-case tracking-normal">
+                            {body}
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+                        </span>
+                    )}
+                </span>
+            );
+        };
+
+        const App = () => {
+            const [expandedYears, setExpandedYears] = useState({});
+            const [hoveredNode, setHoveredNode] = useState(null);
+            const [hoveredHistNode, setHoveredHistNode] = useState(null);
+            const [inflationBaseYear, setInflationBaseYear] = useState(null);
+            const [spendableBaseYear, setSpendableBaseYear] = useState('nominal');
+            const [viewMode, setViewMode] = useState('linear'); 
+            const [showDrawdown, setShowDrawdown] = useState(false);
+            const [compViewMode, setCompViewMode] = useState('growth'); 
+            const [useAccountTaxProfile, setUseAccountTaxProfile] = useState(true);
+            const [graphAccountFilter, setGraphAccountFilter] = useState('all');
+            const [lifetimeAccountFilter, setLifetimeAccountFilter] = useState('all');
+            const [deletedAccount, setDeletedAccount] = useState(null);
+            const undoTimerRef = useRef(null);
+            const [confirmingDelete, setConfirmingDelete] = useState(null);
+            const fileInputRef = useRef(null);
+
+            const [data, setData] = useState({
+                retirementGoal: 1000000,
+                retirementYear: 2060,
+                retirementDuration: 30,
+                monthlyContrib: 1500,
+                annualRetirementSpend: 80000,
+                annualRetirementIncome: 30000,
+                estPreRetirementReturn: 7.0,
+                estPostRetirementReturn: 5.0,
+                estInflation: 2.5,
+                estIncomeTax: 20.0,
+                estCapGainsTax: 15.0,
+                safeWithdrawalRate: 4.0,
+                manualNestEgg: null,
+                years: [
+                    {
+                        id: 'initial-year-id',
+                        year: 2024,
+                        inflationRate: 3.0,
+                        grossIncome: 0,
+                        accounts: [
+                            { id: '1', name: '401(k)', begBalance: 100000, persContrib: 10000, empContrib: 5000, endBalance: 125000, type: 'Pre-Tax', rothSplit: 0 },
+                            { id: '2', name: 'Roth IRA', begBalance: 25000, persContrib: 7000, empContrib: 0, endBalance: 35000, type: 'Roth', rothSplit: 0 }
+                        ]
+                    }
+                ]
+            });
+
+            // --- Formatters ---
+            const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val || 0);
+            const formatNum = (val) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(val || 0);
+            const formatShort = (val) => {
+                const absVal = Math.abs(val);
+                const sign = val < 0 ? '-' : '';
+                if (absVal >= 1000000) return sign + '$' + (absVal / 1000000).toFixed(1) + 'M';
+                if (absVal >= 1000) return sign + '$' + (absVal / 1000).toFixed(0) + 'k';
+                return sign + '$' + Math.round(absVal).toLocaleString();
+            };
+            const formatRaw = (val) => val === null || val === undefined ? "" : val.toString();
+
+            // Extract unique account names for filters
+            const uniqueAccountNames = useMemo(() => {
+                const names = new Set();
+                data.years.forEach(y => y.accounts.forEach(a => { if(a.name) names.add(a.name); }));
+                return Array.from(names).sort();
+            }, [data.years]);
+
+            // Update year data helper
+            const updateYearData = (yearId, field, value) => {
+                setData(prev => ({
+                    ...prev,
+                    years: prev.years.map(y => y.id === yearId ? { ...y, [field]: value } : y)
+                }));
+            };
+
+            // Helper for calculations
+            const calculateYearMetrics = (yearData) => {
+                const totalBeg = (yearData.accounts || []).reduce((sum, a) => sum + Number(a.begBalance || 0), 0);
+                const totalPers = (yearData.accounts || []).reduce((sum, a) => sum + Number(a.persContrib || 0), 0);
+                const totalEmp = (yearData.accounts || []).reduce((sum, a) => sum + Number(a.empContrib || 0), 0);
+                const totalEnd = (yearData.accounts || []).reduce((sum, a) => sum + Number(a.endBalance || 0), 0);
+                const totalSaved = totalPers + totalEmp;
+                const marketGrowth = totalEnd - (totalBeg + totalSaved);
+                const nominalReturn = (totalBeg + (totalSaved / 2)) === 0 ? 0 : marketGrowth / (totalBeg + (totalSaved / 2));
+                const inflation = Number(yearData.inflationRate || 0) / 100;
+                const realReturn = ((1 + nominalReturn) / (1 + inflation)) - 1;
+                const savingsRate = Number(yearData.grossIncome) > 0 ? (totalSaved / Number(yearData.grossIncome)) * 100 : 0;
+                const averageCapital = totalBeg + (totalSaved / 2);
+
+                return { totalBeg, totalPers, totalEmp, totalSaved, marketGrowth, totalEnd, nominalReturn, realReturn, inflation, savingsRate, averageCapital };
+            };
+
+            // Calculate metrics for all years
+            const processedYearData = useMemo(() => {
+                const sortedAsc = [...data.years].sort((a, b) => Number(a.year) - Number(b.year));
+                
+                const withRealValues = sortedAsc.map(yearData => {
+                    const metrics = calculateYearMetrics(yearData);
+
+                    return { ...yearData, metrics };
+                });
+
+                return withRealValues.reverse();
+            }, [data.years]);
+
+            // Lifetime Metrics (Filtered)
+            const lifetimeMetrics = useMemo(() => {
+                let totalCapitalAtRisk = 0;
+                let weightedRealReturnSum = 0;
+                let weightedNominalReturnSum = 0;
+                let sumInflation = 0;
+
+                const totals = data.years.reduce((acc, y) => {
+                    // Filter accounts based on lifetimeAccountFilter
+                    const accountsToUse = lifetimeAccountFilter === 'all' 
+                        ? y.accounts 
+                        : y.accounts.filter(a => a.name === lifetimeAccountFilter);
+                    
+                    const tBeg = accountsToUse.reduce((sum, a) => sum + Number(a.begBalance || 0), 0);
+                    const tPers = accountsToUse.reduce((sum, a) => sum + Number(a.persContrib || 0), 0);
+                    const tEmp = accountsToUse.reduce((sum, a) => sum + Number(a.empContrib || 0), 0);
+                    const tEnd = accountsToUse.reduce((sum, a) => sum + Number(a.endBalance || 0), 0);
+                    const tSaved = tPers + tEmp;
+                    const mGrowth = tEnd - (tBeg + tSaved);
+                    
+                    const avgCap = tBeg + (tSaved / 2);
+                    const nomRet = avgCap === 0 ? 0 : mGrowth / avgCap;
+                    const inf = Number(y.inflationRate || 0) / 100;
+                    const realRet = ((1 + nomRet) / (1 + inf)) - 1;
+
+                    acc.totalSaved += tSaved;
+                    acc.totalPers += tPers;
+                    acc.totalEmp += tEmp;
+                    acc.totalGrowth += mGrowth;
+                    
+                    sumInflation += (y.inflationRate || 0);
+
+                    if (avgCap > 0) {
+                        weightedRealReturnSum += realRet * avgCap;
+                        weightedNominalReturnSum += nomRet * avgCap;
+                        totalCapitalAtRisk += avgCap;
+                    }
+                    
+                    return acc;
+                }, { totalSaved: 0, totalPers: 0, totalEmp: 0, totalGrowth: 0, sumRealReturn: 0 });
+
+                const count = data.years.length || 1;
+                const sortedYears = [...data.years].sort((a, b) => a.year - b.year);
+                const baseYear = inflationBaseYear ? parseInt(inflationBaseYear) : (sortedYears[0]?.year || new Date().getFullYear());
+                
+                let cumulativeInflation = 1.0;
+                sortedYears.forEach(y => {
+                    if (y.year >= baseYear) {
+                         cumulativeInflation *= (1 + (y.inflationRate || 0) / 100);
+                    }
+                });
+                const totalCumulativeInflation = (cumulativeInflation - 1);
+                const avgInflation = count > 0 ? (sumInflation / count) / 100 : 0;
+                const avgRealReturn = totalCapitalAtRisk > 0 ? weightedRealReturnSum / totalCapitalAtRisk : 0;
+                const avgNominalReturn = totalCapitalAtRisk > 0 ? weightedNominalReturnSum / totalCapitalAtRisk : 0;
+
+                return { ...totals, avgRealReturn, avgNominalReturn, avgInflation, totalCumulativeInflation, baseYear };
+            }, [data.years, inflationBaseYear, lifetimeAccountFilter]);
+
+            // Historical Data for Charts (Filtered)
+            const historicalChartData = useMemo(() => {
+                const chronological = [...processedYearData].reverse();
+                let runningPrincipal = 0;
+                let isFirst = true;
+
+                const dataPoints = chronological.map((y) => {
+                     const accountsToUse = graphAccountFilter === 'all' 
+                        ? y.accounts 
+                        : y.accounts.filter(a => a.name === graphAccountFilter);
+                    
+                    const tBeg = accountsToUse.reduce((sum, a) => sum + Number(a.begBalance || 0), 0);
+                    const tSaved = accountsToUse.reduce((sum, a) => sum + (Number(a.persContrib || 0) + Number(a.empContrib || 0)), 0);
+                    const tEnd = accountsToUse.reduce((sum, a) => sum + Number(a.endBalance || 0), 0);
+
+                    if (isFirst) {
+                        runningPrincipal = tBeg;
+                        isFirst = false;
+                    }
+                    runningPrincipal += tSaved;
+                    const marketValue = Math.max(0, tEnd - runningPrincipal);
+                    
+                    // Tax Allocations
+                    let preTax = 0;
+                    let roth = 0;
+                    let taxable = 0;
+                    let realEstate = 0;
+
+                    accountsToUse.forEach(acc => {
+                        const bal = Number(acc.endBalance || 0);
+                        if (acc.type === 'Roth') roth += bal;
+                        else if (acc.type === 'Taxable') taxable += bal;
+                        else if (acc.type === 'Real Estate') realEstate += bal;
+                        else if (acc.type === 'Hybrid') {
+                             const split = parseFloat(acc.rothSplit || 0);
+                             roth += bal * (split / 100);
+                             preTax += bal * (1 - (split / 100));
+                        }
+                        else preTax += bal;
+                    });
+
+                    return {
+                        year: y.year,
+                        principal: runningPrincipal,
+                        growth: marketValue,
+                        total: tEnd,
+                        preTax,
+                        roth,
+                        taxable,
+                        realEstate,
+                        change: 0,
+                        changePercent: 0
+                    };
+                });
+
+                for (let i = 1; i < dataPoints.length; i++) {
+                    const prev = dataPoints[i-1];
+                    const curr = dataPoints[i];
+                    const diff = curr.total - prev.total;
+                    curr.change = diff;
+                    curr.changePercent = prev.total !== 0 ? (diff / prev.total) * 100 : 0;
+                }
+                return dataPoints;
+            }, [processedYearData, graphAccountFilter]);
+
+            const latestActualValue = useMemo(() => {
+                if (processedYearData.length === 0) return 0;
+                return processedYearData[0].metrics.totalEnd;
+            }, [processedYearData]);
+
+            const currentNestEgg = data.manualNestEgg !== null ? data.manualNestEgg : latestActualValue;
+
+            // --- SPENDABLE NET WORTH CALCULATION ---
+            const spendableMetrics = useMemo(() => {
+                const sortedYears = [...data.years].sort((a, b) => Number(b.year) - Number(a.year));
+                if (sortedYears.length === 0) return { spendable: 0, nominal: 0, taxDragRatio: 0 };
+
+                const latestYear = sortedYears[0];
+                let spendableTotal = 0;
+                let nominalTotal = 0; // Nominal total of LIQUID assets only for ratio calc
+
+                // Build per-account growth ratio for Taxable accounts
+                // Tracks each account's own contribution and balance history
+                // so cap gains tax is only applied to that account's actual gains
+                const accountGrowthRatios = {};
+                const chronYearsForGrowth = [...data.years].sort((a, b) => Number(a.year) - Number(b.year));
+                
+                chronYearsForGrowth.forEach((y, yearIndex) => {
+                    (y.accounts || []).forEach(acc => {
+                        if (acc.type !== 'Taxable') return;
+                        const name = acc.name;
+                        if (!accountGrowthRatios[name]) {
+                            // First year we see this account — seed with its beginning balance as principal
+                            accountGrowthRatios[name] = { principal: Number(acc.begBalance || 0) };
+                        }
+                        // Add this year's contributions to the running principal
+                        accountGrowthRatios[name].principal += Number(acc.persContrib || 0) + Number(acc.empContrib || 0);
+                        // Record end balance for this year
+                        accountGrowthRatios[name].endBalance = Number(acc.endBalance || 0);
+                    });
+                });
+
+                // Convert to growth ratio per account name
+                const taxableGrowthRatio = (accountName) => {
+                    const acct = accountGrowthRatios[accountName];
+                    if (!acct || acct.endBalance <= 0) return 0;
+                    const gain = Math.max(0, acct.endBalance - acct.principal);
+                    return gain / acct.endBalance;
+                };
+
+                (latestYear.accounts || []).forEach(acc => {
+                    const bal = Number(acc.endBalance || 0);
+                    
+                    if (acc.type === 'Real Estate') return; // EXCLUDE REAL ESTATE FROM SPENDABLE
+
+                    nominalTotal += bal;
+                    
+                    if (useAccountTaxProfile) {
+                        if (acc.type === 'Roth') {
+                            spendableTotal += bal;
+                        } else if (acc.type === 'Pre-Tax') {
+                            spendableTotal += bal * (1 - (data.estIncomeTax / 100));
+                        } else if (acc.type === 'Taxable') {
+                            // Use this account's own growth ratio — not the whole portfolio's
+                            const gainPortion = bal * taxableGrowthRatio(acc.name);
+                            const tax = gainPortion * (data.estCapGainsTax / 100);
+                            spendableTotal += (bal - tax);
+                        } else if (acc.type === 'Hybrid') {
+                             const split = parseFloat(acc.rothSplit || 0);
+                             const rothPart = bal * (split / 100);
+                             const prePart = bal * (1 - (split / 100));
+                             spendableTotal += rothPart + (prePart * (1 - (data.estIncomeTax / 100)));
+                        } else {
+                             spendableTotal += bal * (1 - (data.estIncomeTax / 100));
+                        }
+                    } else {
+                         spendableTotal += bal * (1 - (data.estIncomeTax / 100));
+                    }
+                });
+
+                let adjSpendable = spendableTotal;
+                if (spendableBaseYear !== 'nominal') {
+                    const base = parseInt(spendableBaseYear);
+                    const chronYears = [...data.years].sort((a,b) => a.year - b.year);
+                    let cumulInflation = 1.0;
+                    chronYears.forEach(y => {
+                        if (y.year > base) {
+                            cumulInflation *= (1 + (y.inflationRate || 0) / 100);
+                        }
+                    });
+                    adjSpendable = spendableTotal / cumulInflation;
+                }
+                
+                // Tax Drag Ratio is based on LIQUID assets only
+                const taxDragRatio = nominalTotal > 0 ? (1 - (spendableTotal / nominalTotal)) : 0;
+
+                return { spendable: adjSpendable, nominal: nominalTotal, taxDragRatio };
+            }, [data.years, data.estIncomeTax, data.estCapGainsTax, historicalChartData, spendableBaseYear, useAccountTaxProfile, processedYearData]);
+
+             const forecastResults = useMemo(() => {
+                const currentYear = new Date().getFullYear();
+                const targetYear = data.retirementYear || 2060;
+                const realRatePre = ((1 + Number(data.estPreRetirementReturn !== undefined ? data.estPreRetirementReturn : 7.0) / 100) / (1 + Number(data.estInflation || 0) / 100)) - 1;
+                const realRatePost = ((1 + Number(data.estPostRetirementReturn !== undefined ? data.estPostRetirementReturn : 5.0) / 100) / (1 + Number(data.estInflation || 0) / 100)) - 1;
+                
+                const P = Number(currentNestEgg || 0); 
+                const PMT = Number(data.monthlyContrib || 0) * 12;
+                const target = Number(data.retirementGoal || 0);
+                
+                const annualSpend = Number(data.annualRetirementSpend || 0);
+                const annualIncome = Number(data.annualRetirementIncome || 0);
+                const netAnnualSpend = annualSpend - annualIncome;
+                const effectiveTaxRate = spendableMetrics.taxDragRatio; 
+                const grossAnnualWithdrawal = netAnnualSpend > 0 ? netAnnualSpend / (1 - effectiveTaxRate) : 0;
+                
+                const retDuration = Number(data.retirementDuration || 30);
+                
+                const yearsToTargetDate = Math.max(1, targetYear - currentYear);
+                let requiredMonthlyReal = 0;
+                
+                const fvCurrentAssets = P * Math.pow(1 + realRatePre, yearsToTargetDate);
+                const gap = target - fvCurrentAssets;
+                if (gap > 0) {
+                    const annuityFactor = realRatePre === 0 ? yearsToTargetDate : (Math.pow(1 + realRatePre, yearsToTargetDate) - 1) / realRatePre;
+                    requiredMonthlyReal = (gap / annuityFactor) / 12;
+                }
+
+                let projectedYearReachedRaw = null;
+                if (P >= target) {
+                    projectedYearReachedRaw = currentYear;
+                } else if (PMT > 0 || realRatePre > 0) {
+                    if (realRatePre <= 0 && PMT <= 0) projectedYearReachedRaw = null;
+                    else if (realRatePre === 0) {
+                        const yearsNeeded = (target - P) / PMT;
+                        projectedYearReachedRaw = currentYear + Math.ceil(yearsNeeded);
+                    } else {
+                        const numerator = target * realRatePre + PMT;
+                        const denominator = P * realRatePre + PMT;
+                        if (numerator > 0 && denominator > 0) {
+                            const yearsNeeded = Math.log(numerator / denominator) / Math.log(1 + realRatePre);
+                            projectedYearReachedRaw = currentYear + Math.ceil(yearsNeeded);
+                        } else projectedYearReachedRaw = null;
+                    }
+                }
+                const projectedYearReachedStr = projectedYearReachedRaw === null ? "Never" : projectedYearReachedRaw.toString();
+                
+                const financialProgress = target > 0 ? (P / target) * 100 : 0;
+                const fvAtTargetDate = realRatePre === 0 ? P + (PMT * yearsToTargetDate) : P * Math.pow(1 + realRatePre, yearsToTargetDate) + PMT * ((Math.pow(1 + realRatePre, yearsToTargetDate) - 1) / realRatePre);
+
+                let statusLabel = "N/A";
+                let statusColor = "text-slate-400 bg-slate-100";
+                let statusIcon = "Info";
+
+                if (projectedYearReachedRaw) {
+                    const yearDiff = Math.abs(projectedYearReachedRaw - targetYear);
+                    if (projectedYearReachedRaw < targetYear) {
+                        statusLabel = `${yearDiff} Year${yearDiff === 1 ? '' : 's'} Ahead`;
+                        statusColor = "text-emerald-700 bg-emerald-100 border-emerald-200";
+                        statusIcon = "ArrowUpRight";
+                    } else if (projectedYearReachedRaw === targetYear) {
+                        statusLabel = "On Track";
+                        statusColor = "text-blue-700 bg-blue-100 border-blue-200";
+                        statusIcon = "CheckCircle2";
+                    } else {
+                        statusLabel = `${yearDiff} Year${yearDiff === 1 ? '' : 's'} Behind`;
+                        statusColor = "text-rose-700 bg-rose-100 border-rose-200";
+                        statusIcon = "AlertCircle";
+                    }
+                }
+                
+                const graphPoints = [];
+                const graphStartYear = currentYear;
+                const graphEndYear = showDrawdown ? targetYear + retDuration : targetYear + 5;
+                
+                let projBal = P;
+                let targetBal = P;
+                let idealPMT = 0;
+                if (realRatePre !== 0) {
+                     idealPMT = (target - P * Math.pow(1+realRatePre, yearsToTargetDate)) / ((Math.pow(1+realRatePre, yearsToTargetDate)-1)/realRatePre);
+                }
+                let requiredAnnual = idealPMT;
+
+                if (viewMode === 'linear') {
+                    for (let y = graphStartYear; y <= graphEndYear; y++) {
+                        const point = { year: y, ideal: null, projected: null };
+                        
+                        if (y === graphStartYear) {
+                             point.ideal = P;
+                             point.projected = P;
+                        } else {
+                             if (y <= targetYear) {
+                                 if (realRatePre === 0) {
+                                     targetBal += requiredAnnual;
+                                     projBal += PMT;
+                                 } else {
+                                     targetBal = targetBal * (1 + realRatePre) + requiredAnnual;
+                                     projBal = projBal * (1 + realRatePre) + PMT;
+                                 }
+                             } else {
+                                 if (showDrawdown) {
+                                     if (realRatePost === 0) {
+                                        targetBal -= grossAnnualWithdrawal;
+                                        projBal -= grossAnnualWithdrawal;
+                                     } else {
+                                        targetBal = targetBal * (1 + realRatePost) - grossAnnualWithdrawal;
+                                        projBal = projBal * (1 + realRatePost) - grossAnnualWithdrawal;
+                                     }
+                                     if (targetBal < 0) targetBal = 0;
+                                     if (projBal < 0) projBal = 0;
+                                 } else {
+                                      if (realRatePre === 0) {
+                                        targetBal += requiredAnnual;
+                                        projBal += PMT;
+                                     } else {
+                                        targetBal = targetBal * (1 + realRatePre) + requiredAnnual;
+                                        projBal = projBal * (1 + realRatePre) + PMT;
+                                     }
+                                 }
+                             }
+                             
+                             point.ideal = targetBal;
+                             point.projected = projBal;
+                        }
+                        graphPoints.push(point);
+                    }
+                }
+                
+                let successRate = 0;
+                let medianOutcome = 0;
+                let safeOutcome = 0;
+                let optimisticOutcome = 0;
+                let monteCarloPoints = [];
+
+                if (viewMode === 'simulation') {
+                     // Option B: run entirely in nominal dollars, deflate at end to real terms.
+                     // This keeps vol (0.15) and mean return on the same nominal ruler.
+                     const nominalRatePre  = Number(data.estPreRetirementReturn  !== undefined ? data.estPreRetirementReturn  : 7.0) / 100;
+                     const nominalRatePost = Number(data.estPostRetirementReturn !== undefined ? data.estPostRetirementReturn : 5.0) / 100;
+                     const inflationRate   = Number(data.estInflation || 2.5) / 100;
+                     const nominalVol = 0.15;
+
+                     // Nominal withdrawal grows with inflation each year
+                     const baseWithdrawal = grossAnnualWithdrawal; // already in today's dollars
+
+                     const iterations = 5000;
+                     const simYears = showDrawdown ? (targetYear + retDuration) - currentYear : (targetYear + 5) - currentYear;
+                     const yearStats = {}; // stores real-deflated balances for chart bands
+                     let successCount = 0;
+
+                     // Fix 2: success = reaches >=95% of goal within ±2 years of targetYear
+                     const goalThreshold = target * 0.95;
+
+                     for (let i = 0; i < iterations; i++) {
+                         let simBal = P; // starts in today's (nominal) dollars
+                         let survived = true;
+                         let hitGoal = false;
+                         let cumulativeInflation = 1.0;
+
+                         for (let t = 1; t <= simYears; t++) {
+                             const year = currentYear + t;
+                             const isRetired = year > targetYear;
+                             const meanReturn = (isRetired && showDrawdown) ? nominalRatePost : nominalRatePre;
+
+                             // Box-Muller normal sample
+                             const u1 = Math.random();
+                             const u2 = Math.random();
+                             const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+                             const annualReturn = meanReturn + (nominalVol * z);
+
+                             cumulativeInflation *= (1 + inflationRate);
+
+                             if (isRetired && showDrawdown) {
+                                 // Withdrawal grows with inflation to maintain real spending power
+                                 const nominalWithdrawal = baseWithdrawal * cumulativeInflation;
+                                 simBal = simBal * (1 + annualReturn) - nominalWithdrawal;
+                                 if (simBal < 0) {
+                                     simBal = 0;
+                                     survived = false;
+                                 }
+                             } else {
+                                 // Contributions grow with inflation (real contribution stays constant)
+                                 const nominalPMT = PMT * cumulativeInflation;
+                                 simBal = simBal * (1 + annualReturn) + nominalPMT;
+
+                                 // Fix 2: check within ±2 year window at ≥95% of goal
+                                 const realBal = simBal / cumulativeInflation;
+                                 const yearsFromTarget = Math.abs(year - targetYear);
+                                 if (!hitGoal && yearsFromTarget <= 2 && realBal >= goalThreshold) {
+                                     hitGoal = true;
+                                 }
+                             }
+
+                             // Deflate to real (today's) dollars for chart percentile bands
+                             const realBal = simBal / cumulativeInflation;
+                             if (!yearStats[year]) yearStats[year] = [];
+                             yearStats[year].push(Math.max(0, realBal));
+                         }
+
+                         if (showDrawdown) {
+                             if (survived) successCount++;
+                         } else {
+                             if (hitGoal) successCount++;
+                         }
+                     }
+
+                     successRate = (successCount / iterations) * 100;
+
+                     monteCarloPoints.push({ year: currentYear, p20: P, p50: P, p80: P });
+                     for (let y = currentYear + 1; y <= currentYear + simYears; y++) {
+                         const vals = yearStats[y];
+                         if (vals) {
+                             vals.sort((a,b) => a - b);
+                             monteCarloPoints.push({
+                                 year: y,
+                                 p20: vals[Math.floor(vals.length * 0.2)],
+                                 p50: vals[Math.floor(vals.length * 0.5)],
+                                 p80: vals[Math.floor(vals.length * 0.8)]
+                             });
+                         }
+                     }
+
+                     const finalYearStats = showDrawdown ? yearStats[currentYear + simYears] : yearStats[targetYear];
+                     if (finalYearStats) {
+                         finalYearStats.sort((a,b) => a-b);
+                         medianOutcome   = finalYearStats[Math.floor(finalYearStats.length * 0.5)];
+                         safeOutcome     = finalYearStats[Math.floor(finalYearStats.length * 0.2)];
+                         optimisticOutcome = finalYearStats[Math.floor(finalYearStats.length * 0.8)];
+                     }
+                }
+                
+                let maxGraphVal = 0;
+                if (viewMode === 'simulation') {
+                     maxGraphVal = Math.max(target * 1.1, ...monteCarloPoints.map(p => p.p80));
+                } else {
+                     maxGraphVal = Math.max(target * 1.1, ...graphPoints.map(p => Math.max(p.ideal || 0, p.projected || 0)));
+                }
+
+                return { 
+                    projectedValue: fvAtTargetDate, 
+                    isOnTrack: fvAtTargetDate >= target, 
+                    requiredMonthly: requiredMonthlyReal, 
+                    financialProgress, 
+                    projectedYearReached: projectedYearReachedStr,
+                    statusLabel, statusColor, statusIcon,
+                    graphPoints, maxGraphVal,
+                    monteCarloPoints, successRate, medianOutcome, safeOutcome, optimisticOutcome, retirementGoal: target,
+                    isLifecycleSuccess: graphPoints.length > 0 ? graphPoints[graphPoints.length-1].projected > 0 : false
+                };
+            }, [currentNestEgg, data, viewMode, showDrawdown, spendableMetrics.taxDragRatio]); 
+
+            const simulationInsight = useMemo(() => {
+                if (viewMode !== 'simulation') return null;
+                const { successRate, safeOutcome, medianOutcome, retirementGoal } = forecastResults;
+                const safeShort = formatShort(safeOutcome);
+                const medianShort = formatShort(medianOutcome);
+                const goalShort = formatShort(retirementGoal);
+                
+                if (showDrawdown) {
+                    // Fix 3: recalibrated thresholds — 85/70/50 instead of 95/80/50
+                    if (successRate >= 85) return { title: "Strong Plan", color: "text-emerald-700 bg-emerald-50 border-emerald-100", text: `In ${successRate.toFixed(1)}% of market simulations your portfolio sustains your spending for the full ${data.retirementDuration} years. This is a well-funded retirement plan.` };
+                    if (successRate >= 70) return { title: "Solid Plan", color: "text-blue-700 bg-blue-50 border-blue-100", text: `Your plan succeeds in ${successRate.toFixed(1)}% of scenarios, with a median portfolio of ${medianShort} at end of retirement. Some flexibility in spending during prolonged downturns would further strengthen it.` };
+                    if (successRate >= 50) return { title: "Needs Attention", color: "text-amber-700 bg-amber-50 border-amber-100", text: `Your plan runs short in ${(100 - successRate).toFixed(1)}% of scenarios before year ${data.retirementDuration}. Consider increasing savings, reducing spending, or delaying retirement.` };
+                    return { title: "Structural Gap", color: "text-rose-700 bg-rose-50 border-rose-100", text: `Your current spending significantly exceeds what your portfolio can reliably support across most market scenarios. A meaningful change to savings or spending is needed.` };
+                } else {
+                    // Fix 3: recalibrated thresholds — 85/70/50 instead of 95/80/50
+                    if (successRate >= 85) return { title: "Goal Well Secured", color: "text-emerald-700 bg-emerald-50 border-emerald-100", text: `You have an ${successRate.toFixed(1)}% probability of reaching your ${goalShort} goal by ${data.retirementYear}. You are in strong shape.` };
+                    if (successRate >= 70) return { title: "On Track", color: "text-blue-700 bg-blue-50 border-blue-100", text: `You have a ${successRate.toFixed(1)}% chance of reaching your ${goalShort} goal. This is a solid outlook — small increases to contributions would push you into the strong range.` };
+                    if (successRate >= 50) return { title: "Needs Attention", color: "text-amber-700 bg-amber-50 border-amber-100", text: `You have a ${successRate.toFixed(1)}% chance of hitting your ${goalShort} goal by ${data.retirementYear}. Increasing contributions or extending your timeline would meaningfully improve your odds.` };
+                    return { title: "Shortfall Likely", color: "text-rose-700 bg-rose-50 border-rose-100", text: `Less than half of simulated market scenarios result in reaching ${goalShort} by ${data.retirementYear}. Review your goal, timeline, or contribution rate.` };
+                }
+            }, [forecastResults, viewMode, showDrawdown, data.retirementDuration, data.retirementYear, data.retirementGoal]);
+
+            const handleNumericInput = (field, val, isNoFormat = false) => {
+                if (val === "" || val === "-" || val.endsWith(".")) {
+                    setData(prev => ({ ...prev, [field]: val }));
+                    return;
+                }
+                if (isNoFormat || ['estPreRetirementReturn','estPostRetirementReturn','estInflation','estIncomeTax','estCapGainsTax','retirementDuration','safeWithdrawalRate'].includes(field)) {
+                   const num = parseFloat(val);
+                   setData(prev => ({ ...prev, [field]: isNaN(num) ? 0 : num }));
+                   return;
+                }
+                const num = parseFloat(val.replace(/[^0-9.-]+/g, ""));
+                setData(prev => ({ ...prev, [field]: isNaN(num) ? 0 : num }));
+            };
+
+            const updateAccount = (yearId, accountId, field, value) => {
+                const isText = ['name', 'type', 'rothSplit'].includes(field);
+                let valToStore = value;
+                
+                if (!isText) {
+                     if (value === "" || value === "-" || value.endsWith(".")) {
+                          valToStore = value; 
+                     } else {
+                          valToStore = parseFloat(value);
+                          if (isNaN(valToStore)) valToStore = 0;
+                     }
+                }
+
+                setData(prev => ({
+                    ...prev,
+                    years: prev.years.map(y => y.id === yearId ? {
+                        ...y,
+                        accounts: y.accounts.map(a => a.id === accountId ? { 
+                            ...a, 
+                            [field]: valToStore
+                        } : a)
+                    } : y)
+                }));
+            };
+
+            const deleteAccount = (yearId, accountId) => {
+                const year = data.years.find(y => y.id === yearId);
+                const accountIndex = year?.accounts.findIndex(a => a.id === accountId);
+                const account = year?.accounts[accountIndex];
+                setConfirmingDelete(null);
+                setData(prev => ({
+                    ...prev,
+                    years: prev.years.map(y => y.id === yearId ? {
+                        ...y,
+                        accounts: y.accounts.filter(a => a.id !== accountId)
+                    } : y)
+                }));
+                setDeletedAccount({ yearId, account, accountIndex });
+                if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+                undoTimerRef.current = setTimeout(() => setDeletedAccount(null), 5000);
+            };
+
+            const undoDelete = () => {
+                if (!deletedAccount) return;
+                const { yearId, account, accountIndex } = deletedAccount;
+                setData(prev => ({
+                    ...prev,
+                    years: prev.years.map(y => y.id === yearId ? {
+                        ...y,
+                        accounts: [
+                            ...y.accounts.slice(0, accountIndex),
+                            account,
+                            ...y.accounts.slice(accountIndex)
+                        ]
+                    } : y)
+                }));
+                if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+                setDeletedAccount(null);
+            };
+
+            const addYear = () => {
+                const sorted = [...data.years].sort((a, b) => Number(b.year) - Number(a.year));
+                const lastYear = sorted[0]?.year || 2024;
+                const nextId = Math.random().toString(36).substr(2, 9);
+                const newYear = {
+                    id: nextId,
+                    year: Number(lastYear) + 1,
+                    inflationRate: 2.5,
+                    grossIncome: 0,
+                    accounts: (sorted[0]?.accounts || []).map(a => ({
+                        ...a,
+                        id: Math.random().toString(36).substr(2, 9),
+                        begBalance: a.endBalance,
+                        persContrib: 0,
+                        empContrib: 0,
+                        endBalance: a.endBalance,
+                        type: a.type || 'Pre-Tax',
+                        rothSplit: a.rothSplit || 0
+                    }))
+                };
+                setData(prev => ({ ...prev, years: [...prev.years, newYear] }));
+                setExpandedYears(prev => ({ ...prev, [nextId]: true }));
+            };
+
+            const exportData = () => {
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `wealthpulse_data_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const importData = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        setData(prev => ({
+                            ...prev,
+                            ...importedData,
+                            estPreRetirementReturn: importedData.estPreRetirementReturn !== undefined ? importedData.estPreRetirementReturn : (importedData.estNominalReturn || 7.0),
+                            estPostRetirementReturn: importedData.estPostRetirementReturn !== undefined ? importedData.estPostRetirementReturn : 5.0,
+                            annualRetirementSpend: importedData.annualRetirementSpend !== undefined ? importedData.annualRetirementSpend : 80000,
+                            annualRetirementIncome: importedData.annualRetirementIncome !== undefined ? importedData.annualRetirementIncome : 30000,
+                            retirementDuration: importedData.retirementDuration !== undefined ? importedData.retirementDuration : 30,
+                            safeWithdrawalRate: importedData.safeWithdrawalRate !== undefined ? importedData.safeWithdrawalRate : 4.0,
+                            years: (importedData.years || []).map(y => ({
+                                ...y,
+                                accounts: (y.accounts || []).map(a => ({
+                                    ...a,
+                                    type: a.type || 'Pre-Tax',
+                                    rothSplit: a.rothSplit || 0
+                                }))
+                            }))
+                        }));
+                    } catch (err) {
+                        alert("Invalid file format.");
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            };
+
+            const handleGraphHover = (e) => {
+                const svg = e.currentTarget.parentElement;
+                const rect = svg.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const effectiveX = x - 64; 
+                const effectiveWidth = rect.width - 72; 
+                
+                if (effectiveX < 0 || effectiveX > effectiveWidth) return;
+
+                if (viewMode === 'simulation') {
+                     const pointCount = forecastResults.monteCarloPoints.length;
+                    if (pointCount < 2) return;
+                    const scale = (pointCount - 1) / effectiveWidth;
+                    const index = Math.round(effectiveX * scale);
+                    if (index >= 0 && index < pointCount) setHoveredNode(forecastResults.monteCarloPoints[index]);
+                } else {
+                    const pointCount = forecastResults.graphPoints.length;
+                    if (pointCount < 2) return;
+                    const scale = (pointCount - 1) / effectiveWidth;
+                    const index = Math.round(effectiveX * scale);
+                    if (index >= 0 && index < pointCount) setHoveredNode(forecastResults.graphPoints[index]);
+                }
+            };
+
+            const handleHistGraphHover = (e) => {
+                const svg = e.currentTarget.parentElement;
+                const rect = svg.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const effectiveX = x - 64; 
+                const effectiveWidth = rect.width - 72; 
+                
+                if (effectiveX < 0 || effectiveX > effectiveWidth) return;
+
+                const pointCount = historicalChartData.length;
+                if (pointCount < 2) return;
+                const scale = (pointCount - 1) / effectiveWidth;
+                const index = Math.round(effectiveX * scale);
+                if (index >= 0 && index < pointCount) setHoveredHistNode(historicalChartData[index]);
+            };
+
+            return (
+                <div className="max-w-[1200px] mx-auto px-4 py-8">
+                    {/* Header */}
+                    <header className="mb-6 flex flex-col md:flex-row justify-between items-start gap-4">
+                        <div>
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="bg-slate-900 p-2 rounded-lg text-white shadow-lg">
+                                    <Icon name="BarChart3" size={24} />
+                                </div>
+                                <h1 className="text-2xl font-black tracking-tight text-slate-900">WealthPulse <span className="text-blue-600">Local</span></h1>
+                            </div>
+                            <p className="text-slate-500 text-sm font-medium">Standalone Portfolio Performance Ledger</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 md:self-end">
+
+                            <div className="flex items-center bg-white border border-slate-200 rounded-full px-1 py-1 shadow-sm">
+                                <button onClick={exportData} className="flex items-center gap-2 px-4 py-1.5 hover:bg-slate-50 rounded-full text-[11px] font-black text-slate-800 transition-colors">
+                                    <Icon name="Download" size={14} className="text-blue-600" /> Backup
+                                </button>
+                                <div className="w-px h-4 bg-slate-200 mx-1" />
+                                <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-2 px-4 py-1.5 hover:bg-slate-50 rounded-full text-[11px] font-black text-slate-800 transition-colors">
+                                    <Icon name="Upload" size={14} className="text-indigo-600" /> Load
+                                </button>
+                                <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={importData} />
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Projection Parameters */}
+                    <div className="mb-8">
+                        <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100 shadow-sm relative">
+                             <div className="flex justify-between items-start mb-4">
+                                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Icon name="Sliders" size={14} className="text-blue-500" /> Projection Parameters
+                                </h2>
+                                {/* Plan Drawdown Toggle */}
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-bold uppercase tracking-wide transition-colors ${showDrawdown ? 'text-indigo-600' : 'text-slate-400'}`}>
+                                        Plan Drawdown
+                                    </span>
+                                    <div className="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in">
+                                        <input 
+                                            type="checkbox" 
+                                            name="toggle" 
+                                            id="toggle" 
+                                            className="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-2 border-slate-300 appearance-none cursor-pointer transition-all duration-300"
+                                            checked={showDrawdown}
+                                            onChange={() => setShowDrawdown(!showDrawdown)}
+                                        />
+                                        <label htmlFor="toggle" className={`toggle-label block overflow-hidden h-4 rounded-full cursor-pointer transition-colors duration-300 ${showDrawdown ? 'bg-indigo-500' : 'bg-slate-300'}`}></label>
+                                    </div>
+                                </div>
+                             </div>
+                            
+                            <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 ${showDrawdown ? 'lg:grid-cols-5' : 'lg:grid-cols-6'} gap-4 transition-all`}>
+                                {/* Base Params */}
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center">Target Nest Egg<Tooltip text="Enter in today's dollars. The model inflates this target internally — you don't need to adjust for future prices." /></label>
+                                    <div className="flex items-center gap-1 bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                                        <span className="font-bold text-slate-400">$</span>
+                                        <input type="text" value={formatNum(data.retirementGoal)} onChange={(e) => handleNumericInput('retirementGoal', e.target.value)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center">Retirement Year<Tooltip text="The year you plan to stop working. The model projects forward from today to this date." /></label>
+                                    <div className="flex items-center gap-1 bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                                        <Icon name="Calendar" size={14} className="text-slate-400" />
+                                        <input type="text" value={formatRaw(data.retirementYear)} onChange={(e) => handleNumericInput('retirementYear', e.target.value, true)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center">Monthly Contribution<Tooltip text="Used in the forward projection as your expected ongoing monthly savings, in today's dollars. The simulation grows this with inflation each year." /></label>
+                                    <div className="flex items-center gap-1 bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                                        <span className="font-bold text-slate-400">$</span>
+                                        <input type="text" value={formatNum(data.monthlyContrib)} onChange={(e) => handleNumericInput('monthlyContrib', e.target.value)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center">Current Balance<Tooltip text="Auto-filled from your latest ledger year. Override here to test scenarios without changing your ledger data." /></label>
+                                    <div className="flex items-center gap-1 bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                                        <span className="font-bold text-slate-400">$</span>
+                                        <input type="text" value={formatNum(currentNestEgg)} onChange={(e) => handleNumericInput('manualNestEgg', e.target.value)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center">Pre-Ret Return<Tooltip text="Expected average annual nominal return before retirement. Historical US stock market average is ~10%; a balanced portfolio is typically 6–8%." /></label>
+                                    <div className="flex items-center gap-1 bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                                        <input type="text" value={formatRaw(data.estPreRetirementReturn)} onChange={(e) => handleNumericInput('estPreRetirementReturn', e.target.value, true)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                        <span className="font-bold text-slate-400">%</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center">Est Inflation<Tooltip text="Used to convert nominal returns to real purchasing power and to grow contributions and withdrawals in the simulation. Long-run US average is ~2.5–3%." /></label>
+                                    <div className="flex items-center gap-1 bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                                        <input type="text" value={formatRaw(data.estInflation)} onChange={(e) => handleNumericInput('estInflation', e.target.value, true)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                        <span className="font-bold text-slate-400">%</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center">Effective Tax<Tooltip text="Applied to Pre-Tax account balances when calculating drawdown phase. Use your expected effective tax rate in retirement, not your marginal rate. Projection uses account composition from most recent ledger." /></label>
+                                    <div className="flex items-center gap-1 bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                                        <input type="text" value={formatRaw(data.estIncomeTax)} onChange={(e) => handleNumericInput('estIncomeTax', e.target.value, true)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                        <span className="font-bold text-slate-400">%</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 flex items-center">Cap Gains<Tooltip text="Applied to the growth portion of taxable account balances when calculating drawdown phase. Projection uses account composition from most recent ledger." /></label>
+                                    <div className="flex items-center gap-1 bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                                        <input type="text" value={formatRaw(data.estCapGainsTax)} onChange={(e) => handleNumericInput('estCapGainsTax', e.target.value, true)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                        <span className="font-bold text-slate-400">%</span>
+                                    </div>
+                                </div>
+
+                                {/* Drawdown Specific Inputs */}
+                                {showDrawdown && (
+                                    <React.Fragment>
+                                            <div className="flex flex-col gap-1 animate-fadeIn">
+                                                <label className="text-[10px] font-black uppercase text-indigo-500 flex items-center">Retirement Duration<Tooltip text="How many years your portfolio needs to last after retirement." /></label>
+                                                <div className="flex items-center gap-1 bg-indigo-50 p-2 rounded-xl border border-indigo-100 shadow-sm">
+                                                    <input type="text" value={formatRaw(data.retirementDuration)} onChange={(e) => handleNumericInput('retirementDuration', e.target.value, true)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                                    <span className="font-bold text-slate-400 text-xs">Yrs</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-1 animate-fadeIn">
+                                                <label className="text-[10px] font-black uppercase text-indigo-500 flex items-center">Annual Spend<Tooltip content={<React.Fragment>Expected yearly spending in retirement, in today's dollars. The model inflates this each year during the drawdown simulation to maintain real purchasing power.<span className="block mt-1.5 pt-1.5 border-t border-white/20 opacity-75">Withdrawals grossed up {(spendableMetrics.taxDragRatio * 100).toFixed(1)}% for taxes based on current account composition and assumes proportional draws from all account types — optimized withdrawals may reduce actual tax drag.</span></React.Fragment>} /></label>
+                                                <div className="flex items-center gap-1 bg-indigo-50 p-2 rounded-xl border border-indigo-100 shadow-sm">
+                                                    <span className="font-bold text-slate-400">$</span>
+                                                    <input type="text" value={formatNum(data.annualRetirementSpend)} onChange={(e) => handleNumericInput('annualRetirementSpend', e.target.value)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-1 animate-fadeIn">
+                                                <label className="text-[10px] font-black uppercase text-indigo-500 flex items-center">Annual Income<Tooltip text="Pension, Social Security, or other fixed income in retirement. Subtracted from Annual Spend to determine how much your portfolio must cover each year." /></label>
+                                                <div className="flex items-center gap-1 bg-indigo-50 p-2 rounded-xl border border-indigo-100 shadow-sm">
+                                                    <span className="font-bold text-slate-400">$</span>
+                                                    <input type="text" value={formatNum(data.annualRetirementIncome)} onChange={(e) => handleNumericInput('annualRetirementIncome', e.target.value)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-1 animate-fadeIn">
+                                                <label className="text-[10px] font-black uppercase text-indigo-500 flex items-center">Post-Ret Return<Tooltip text="Expected annual nominal return during drawdown simulation." /></label>
+                                                <div className="flex items-center gap-1 bg-indigo-50 p-2 rounded-xl border border-indigo-100 shadow-sm">
+                                                    <input type="text" value={formatRaw(data.estPostRetirementReturn)} onChange={(e) => handleNumericInput('estPostRetirementReturn', e.target.value, true)} className="bg-transparent border-none focus:ring-0 p-0 font-black text-base text-slate-800 w-full" />
+                                                    <span className="font-bold text-slate-400">%</span>
+                                                </div>
+                                            </div>
+                                    </React.Fragment>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Goal Progress Card */}
+                    <div className="mb-6 bg-indigo-50/40 p-8 rounded-2xl border-2 border-indigo-100 shadow-sm overflow-hidden">
+                        
+                        {/* Top: Metrics & Status & Toggle */}
+                        <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-8 border-b border-indigo-100 pb-6">
+                            <div>
+                                <div className="flex items-center gap-4 mb-1">
+                                    <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <Icon name="TrendingUp" size={14} className="text-indigo-500" /> Goal Progress
+                                    </h2>
+                                    <div className="bg-white/50 p-1 rounded-lg flex text-[10px] font-bold border border-indigo-100">
+                                            <button 
+                                                onClick={() => setViewMode('linear')}
+                                                className={`px-3 py-1 rounded ${viewMode === 'linear' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                                            >
+                                                Forecast
+                                            </button>
+                                            <button 
+                                                onClick={() => setViewMode('simulation')}
+                                                className={`px-3 py-1 rounded ${viewMode === 'simulation' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                                            >
+                                                Simulation
+                                            </button>
+                                    </div>
+                                </div>
+                                <div className="flex items-baseline gap-4 mb-2">
+                                    {viewMode === 'linear' ? (
+                                        <div className="text-4xl font-black text-slate-900">{forecastResults.financialProgress.toFixed(1)}%</div>
+                                    ) : (
+                                        <div className="text-4xl font-black text-slate-900">{forecastResults.successRate.toFixed(1)}% <span className="text-sm font-bold text-slate-400">Success</span></div>
+                                    )}
+                                    <div className="flex flex-col">
+                                            {viewMode === 'linear' ? (
+                                                <React.Fragment>
+                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                                        Current balance as % of goal
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 mt-0.5">
+                                                        Est Completion: <span className="text-slate-800">{forecastResults.projectedYearReached}</span>
+                                                    </div>
+                                                </React.Fragment>
+                                            ) : (
+                                                <React.Fragment>
+                                                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 mb-0.5">
+                                                        80th Percentile: <span className="text-slate-800">{formatShort(forecastResults.optimisticOutcome)}</span>
+                                                    </div>
+                                                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                                                        Median End: <span className="text-blue-600">{formatShort(forecastResults.medianOutcome)}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 mt-0.5">
+                                                        20th Percentile: <span className="text-slate-800">{formatShort(forecastResults.safeOutcome)}</span>
+                                                    </div>
+                                                </React.Fragment>
+                                            )}
+                                    </div>
+                                </div>
+                                {viewMode === 'linear' && (
+                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-colors duration-300 ${forecastResults.statusColor}`}>
+                                            <Icon name={forecastResults.statusIcon} size={12} />
+                                            {showDrawdown 
+                                                ? (forecastResults.isLifecycleSuccess ? "Plan Sustainable" : "Shortfall Risk")
+                                                : forecastResults.statusLabel}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div className="flex gap-8 text-right max-w-sm">
+                                {viewMode === 'simulation' ? (
+                                    <div className={`text-left p-3 rounded-xl border ${simulationInsight.color}`}>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <Icon name="Sparkles" size={14} />
+                                                <span className="text-[10px] font-black uppercase tracking-widest">{simulationInsight.title}</span>
+                                            </div>
+                                            <p className="text-xs font-medium leading-relaxed opacity-90">
+                                                {simulationInsight.text}
+                                            </p>
+
+                                    </div>
+                                ) : (
+                                    <React.Fragment>
+                                        <div>
+                                             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Portfolio in {data.retirementYear} (Today's Dollars)</div>
+                                             <div className="text-2xl font-black text-slate-800">{formatCurrency(forecastResults.projectedValue)}</div>
+                                        </div>
+                                        <div>
+                                             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Required Monthly Savings (Today's Dollars)</div>
+                                             <div className="text-2xl font-black text-blue-600">{formatCurrency(forecastResults.requiredMonthly)}</div>
+                                             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Increase by ~{data.estInflation}%/year</div>
+                                        </div>
+                                    </React.Fragment>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {/* Middle: Progress Bar (Linear only) */}
+                        {viewMode === 'linear' && (
+                            <div className="h-4 bg-white rounded-full overflow-hidden border border-slate-200 p-0.5 mb-8">
+                                <div 
+                                    className={`h-full rounded-full transition-all duration-1000 ease-out ${forecastResults.isOnTrack ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-gradient-to-r from-orange-400 to-rose-500'}`}
+                                    style={{ width: `${Math.min(100, forecastResults.financialProgress)}%` }}
+                                />
+                            </div>
+                        )}
+
+                        {/* Bottom: Wide Graph */}
+                        <div className="h-96 bg-white/70 rounded-xl border border-indigo-100 p-4 relative shadow-sm">
+                            <div className="absolute top-2 left-3 text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                                {viewMode === 'linear' ? (showDrawdown ? 'Lifecycle Forecast' : 'Accumulation Forecast') : 'Monte Carlo Simulation (5000 Runs)'}
+                            </div>
+                            
+                            {(viewMode === 'linear' && forecastResults.graphPoints.length > 0) || (viewMode === 'simulation' && forecastResults.monteCarloPoints.length > 0) ? (
+                                <div className="w-full h-full pt-6 relative">
+                                    {/* Y Axis Labels */}
+                                    <div className="absolute left-0 top-6 bottom-8 w-16 flex flex-col justify-between text-xs text-slate-500 font-bold text-right pr-2 pointer-events-none z-10">
+                                        <span>{formatShort(forecastResults.maxGraphVal)}</span>
+                                        <span>{formatShort(forecastResults.maxGraphVal * 0.75)}</span>
+                                        <span>{formatShort(forecastResults.maxGraphVal * 0.5)}</span>
+                                        <span>{formatShort(forecastResults.maxGraphVal * 0.25)}</span>
+                                        <span>0</span>
+                                    </div>
+                                    
+                                    {/* Chart Content */}
+                                    <div 
+                                        className="absolute left-16 right-2 top-6 bottom-8 cursor-crosshair"
+                                        onMouseMove={handleGraphHover}
+                                        onMouseLeave={() => setHoveredNode(null)}
+                                    >
+                                        {viewMode === 'linear' ? (
+                                            <svg viewBox={`0 0 ${forecastResults.graphPoints.length - 1} 100`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                                <defs>
+                                                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#6366f1" stopOpacity="0.15"/>
+                                                        <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0"/>
+                                                    </linearGradient>
+                                                </defs>
+
+                                                {/* Grid Lines */}
+                                                {[0, 25, 50, 75, 100].map(y => (
+                                                    <line key={y} x1="0" y1={y} x2={forecastResults.graphPoints.length - 1} y2={y} stroke="#f1f5f9" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                                                ))}
+
+                                                {/* Goal Line */}
+                                                    <line 
+                                                    x1="0" 
+                                                    y1={100 - (data.retirementGoal / forecastResults.maxGraphVal) * 100} 
+                                                    x2={forecastResults.graphPoints.length - 1} 
+                                                    y2={100 - (data.retirementGoal / forecastResults.maxGraphVal) * 100} 
+                                                    stroke="#10b981" 
+                                                    strokeWidth="1.5" 
+                                                    strokeDasharray="4 4"
+                                                    opacity="0.6"
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+
+                                                {/* Target Path (Gray) */}
+                                                <path 
+                                                    d={`M ${forecastResults.graphPoints.map((p, i) => `${i} ${Math.max(0, 100 - ((p.ideal || 0) / forecastResults.maxGraphVal) * 100)}`).join(' L ')}`} 
+                                                    fill="none" 
+                                                    stroke="#94a3b8" 
+                                                    strokeWidth="2.5" 
+                                                    strokeDasharray="4 4"
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+
+                                                {/* Projected Path (Purple Area) */}
+                                                <path 
+                                                    d={`M ${forecastResults.graphPoints.map((p, i) => {
+                                                        const idx = forecastResults.graphPoints.findIndex(gp => gp.year === p.year);
+                                                        const yVal = Math.max(0, 100 - ((p.projected || 0) / forecastResults.maxGraphVal) * 100);
+                                                        return `${idx} ${yVal}`
+                                                    }).join(' L ')} L ${forecastResults.graphPoints.length - 1} 100 L 0 100 Z`}
+                                                    fill="url(#chartGradient)"
+                                                    stroke="none"
+                                                />
+
+                                                {/* Projected Path (Purple Line) */}
+                                                <path 
+                                                    d={`M ${forecastResults.graphPoints.map((p, i) => {
+                                                        const idx = forecastResults.graphPoints.findIndex(gp => gp.year === p.year);
+                                                        const yVal = Math.max(0, 100 - ((p.projected || 0) / forecastResults.maxGraphVal) * 100);
+                                                        return `${idx} ${yVal}`
+                                                    }).join(' L ')}`} 
+                                                    fill="none" 
+                                                    stroke="#6366f1" 
+                                                    strokeWidth="4" 
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    vectorEffect="non-scaling-stroke" 
+                                                />
+
+                                                {/* Hover Tooltip Elements */}
+                                                {hoveredNode && (() => {
+                                                    const idx = forecastResults.graphPoints.findIndex(p => p.year === hoveredNode.year);
+                                                    return (
+                                                        <g>
+                                                            <line 
+                                                                x1={idx} y1="0" x2={idx} y2="100" 
+                                                                stroke="#475569" strokeWidth="1" 
+                                                                vectorEffect="non-scaling-stroke"
+                                                            />
+                                                        </g>
+                                                    )
+                                                })()}
+                                            </svg>
+                                        ) : (
+                                            /* Monte Carlo SVG */
+                                            <svg viewBox={`0 0 ${forecastResults.monteCarloPoints.length - 1} 100`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                                {/* Grid Lines */}
+                                                {[0, 25, 50, 75, 100].map(y => (
+                                                    <line key={y} x1="0" y1={y} x2={forecastResults.monteCarloPoints.length - 1} y2={y} stroke="#f1f5f9" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                                                ))}
+
+                                                {/* Goal Line */}
+                                                {!showDrawdown && (
+                                                     <line 
+                                                        x1="0" 
+                                                        y1={100 - (data.retirementGoal / forecastResults.maxGraphVal) * 100} 
+                                                        x2={forecastResults.monteCarloPoints.length - 1} 
+                                                        y2={100 - (data.retirementGoal / forecastResults.maxGraphVal) * 100} 
+                                                        stroke="#10b981" 
+                                                        strokeWidth="1.5" 
+                                                        strokeDasharray="4 4"
+                                                        opacity="0.6"
+                                                        vectorEffect="non-scaling-stroke"
+                                                    />
+                                                )}
+
+                                                {/* Range Area (20th - 80th percentile) */}
+                                                <path 
+                                                    d={`
+                                                        M ${forecastResults.monteCarloPoints.map((p, i) => `${i} ${Math.max(0, 100 - (p.p80 / forecastResults.maxGraphVal) * 100)}`).join(' L ')}
+                                                        L ${forecastResults.monteCarloPoints.length - 1} ${Math.max(0, 100 - (forecastResults.monteCarloPoints[forecastResults.monteCarloPoints.length-1].p20 / forecastResults.maxGraphVal) * 100)}
+                                                        ${forecastResults.monteCarloPoints.slice().reverse().map((p, i) => {
+                                                            const idx = forecastResults.monteCarloPoints.length - 1 - i;
+                                                            return `L ${idx} ${Math.max(0, 100 - (p.p20 / forecastResults.maxGraphVal) * 100)}`
+                                                        }).join(' ')}
+                                                        Z
+                                                    `}
+                                                    fill="#6366f1" opacity="0.15" stroke="none"
+                                                />
+                                                
+                                                {/* Median Line (50th) */}
+                                                <path 
+                                                    d={`M ${forecastResults.monteCarloPoints.map((p, i) => `${i} ${Math.max(0, 100 - (p.p50 / forecastResults.maxGraphVal) * 100)}`).join(' L ')}`} 
+                                                    fill="none" 
+                                                    stroke="#6366f1" 
+                                                    strokeWidth="3" 
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+                                                
+                                                {/* Hover Tooltip Elements */}
+                                                {hoveredNode && (() => {
+                                                    const idx = forecastResults.monteCarloPoints.findIndex(p => p.year === hoveredNode.year);
+                                                    return (
+                                                        <g>
+                                                            <line 
+                                                                x1={idx} y1="0" x2={idx} y2="100" 
+                                                                stroke="#475569" strokeWidth="1" 
+                                                                vectorEffect="non-scaling-stroke"
+                                                            />
+                                                        </g>
+                                                    )
+                                                })()}
+                                            </svg>
+                                        )}
+                                        
+                                        {/* Tooltip Popup */}
+                                        {hoveredNode && (
+                                            <div 
+                                                className={`absolute bg-white text-slate-700 p-3 rounded-lg text-xs shadow-xl z-20 border border-slate-200 w-40 tooltip-active`}
+                                                style={{
+                                                    left: `${(
+                                                        viewMode === 'linear' 
+                                                            ? forecastResults.graphPoints.findIndex(p => p.year === hoveredNode.year) / (forecastResults.graphPoints.length - 1)
+                                                            : forecastResults.monteCarloPoints.findIndex(p => p.year === hoveredNode.year) / (forecastResults.monteCarloPoints.length - 1)
+                                                    ) * 100}%`,
+                                                    top: '10%',
+                                                    transform: (
+                                                        viewMode === 'linear' 
+                                                            ? forecastResults.graphPoints.findIndex(p => p.year === hoveredNode.year) > forecastResults.graphPoints.length / 2 
+                                                            : forecastResults.monteCarloPoints.findIndex(p => p.year === hoveredNode.year) > forecastResults.monteCarloPoints.length / 2
+                                                    ) ? 'translateX(calc(-100% - 15px))' : 'translateX(15px)'
+                                                }}
+                                            >
+                                                <div className="font-black border-b border-slate-100 pb-1 mb-2">{hoveredNode.year}</div>
+                                                
+                                                {viewMode === 'linear' ? (
+                                                    <React.Fragment>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <span className="text-indigo-600 font-bold">Proj:</span>
+                                                            <span className="font-mono">{formatShort(hoveredNode.projected)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <span className="text-slate-400 font-bold">Target:</span>
+                                                            <span className="font-mono">{formatShort(hoveredNode.ideal)}</span>
+                                                        </div>
+                                                        {hoveredNode.projected !== null && hoveredNode.ideal !== null && (
+                                                            <div className={`text-[10px] font-black text-right pt-1 border-t border-slate-100 ${hoveredNode.projected >= hoveredNode.ideal ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                {hoveredNode.projected >= hoveredNode.ideal ? '+' : ''}{formatShort(hoveredNode.projected - hoveredNode.ideal)}
+                                                            </div>
+                                                        )}
+                                                    </React.Fragment>
+                                                ) : (
+                                                    <React.Fragment>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <span className="text-indigo-600 font-bold">Median:</span>
+                                                            <span className="font-mono">{formatShort(hoveredNode.p50)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center mb-1 text-[10px] text-slate-500">
+                                                            <span>80th %:</span>
+                                                            <span className="font-mono">{formatShort(hoveredNode.p80)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center mb-1 text-[10px] text-slate-500">
+                                                            <span>20th %:</span>
+                                                            <span className="font-mono">{formatShort(hoveredNode.p20)}</span>
+                                                        </div>
+                                                    </React.Fragment>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* X Axis Labels */}
+                                    <div className="absolute left-16 right-4 bottom-0 flex justify-between text-xs font-bold text-slate-400 pt-2">
+                                        {viewMode === 'linear' 
+                                            ? forecastResults.graphPoints.filter((_, i) => i % 5 === 0 || i === forecastResults.graphPoints.length - 1).map(p => (
+                                                <span key={p.year}>{p.year}</span>
+                                            ))
+                                            : forecastResults.monteCarloPoints.filter((_, i) => i % 5 === 0 || i === forecastResults.monteCarloPoints.length - 1).map(p => (
+                                                <span key={p.year}>{p.year}</span>
+                                            ))
+                                        }
+                                    </div>
+
+                                    {/* Legend */}
+                                    <div className="absolute bottom-3 left-18 flex gap-4 pointer-events-none">
+                                        {viewMode === 'linear' ? (
+                                            <React.Fragment>
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-3 h-3 rounded-full bg-indigo-500 border-2 border-white shadow-sm"></div>
+                                                    <span className="text-[9px] font-bold text-indigo-700">Projected Path</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-3 h-3 rounded-full bg-slate-400 border-2 border-white shadow-sm"></div>
+                                                    <span className="text-[9px] font-bold text-slate-500">Target Path</span>
+                                                </div>
+                                            </React.Fragment>
+                                        ) : (
+                                            <React.Fragment>
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-3 h-3 rounded-full bg-indigo-500 border-2 border-white shadow-sm"></div>
+                                                    <span className="text-[9px] font-bold text-indigo-700">Median</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-3 h-3 rounded-sm bg-indigo-100 border border-indigo-200"></div>
+                                                    <span className="text-[9px] font-bold text-indigo-400">Range (20th-80th)</span>
+                                                </div>
+                                            </React.Fragment>
+                                        )}
+                                        {!showDrawdown && (
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-4 h-0.5 bg-emerald-500"></div>
+                                                <span className="text-[9px] font-bold text-emerald-600">Goal</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center h-full text-sm text-slate-400 font-medium">
+                                    <span className="flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full">
+                                        <Icon name="Activity" size={16} /> Enter data to visualize curve
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Spendable Power Card - New Location Below Graph */}
+                    <div className="mb-8 bg-emerald-50 border border-emerald-100 p-5 rounded-3xl shadow-sm flex flex-col lg:flex-row items-center justify-between gap-6">
+                        
+                        {/* Metrics Group */}
+                        <div className="flex flex-1 gap-8 items-center w-full lg:w-auto justify-between lg:justify-start">
+                            {/* Total Spendable */}
+                            <div className="flex items-center gap-4">
+                                <div className="bg-white p-2 rounded-lg text-emerald-500 shadow-sm border border-emerald-100">
+                                    <Icon name="Wallet" size={24} />
+                                </div>
+                                <div>
+                                    <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-0.5">
+                                        Real Spendable Power
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                        <div className="text-2xl font-black text-slate-900 tracking-tight">
+                                            {formatCurrency(spendableMetrics.spendable)}
+                                        </div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                            After Tax
+                                        </div>
+                                    </div>
+                                    <div className="text-[10px] font-black text-rose-400 uppercase tracking-widest mt-0.5">
+                                        {(spendableMetrics.taxDragRatio * 100).toFixed(1)}% tax drag on portfolio
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Divider */}
+                            <div className="hidden sm:block w-px h-10 bg-emerald-200/50"></div>
+
+                            {/* Annual SWR — monthly shown as secondary */}
+                            <div>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Annual Draw</span>
+                                    {/* Input SWR */}
+                                    <div className="flex items-center bg-white px-1.5 py-0.5 rounded border border-emerald-200 shadow-sm focus-within:ring-1 focus-within:ring-emerald-500">
+                                        <input 
+                                            type="text" 
+                                            value={formatRaw(data.safeWithdrawalRate)} 
+                                            onChange={(e) => handleNumericInput('safeWithdrawalRate', e.target.value, true)} 
+                                            className="w-6 text-[10px] font-bold text-right bg-transparent border-none focus:ring-0 p-0 text-slate-800"
+                                        />
+                                        <span className="text-[10px] font-bold text-emerald-500 ml-0.5">%</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-baseline gap-2">
+                                    <div className="text-2xl font-black text-emerald-700 tracking-tight">
+                                        {formatCurrency(spendableMetrics.spendable * (data.safeWithdrawalRate / 100))}
+                                    </div>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                        / yr
+                                    </div>
+                                </div>
+                                <div className="text-sm font-black text-slate-600 mt-0.5">
+                                    {formatCurrency((spendableMetrics.spendable * (data.safeWithdrawalRate / 100)) / 12)} <span className="text-[10px] font-bold text-slate-400">/ mo</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Controls Section */}
+                        <div className="flex flex-wrap items-center justify-end gap-4 w-full lg:w-auto">
+                             {/* Tax Profile Toggle */}
+                             <div className="flex items-center gap-2">
+                                <span className={`text-[9px] font-bold uppercase tracking-wide transition-colors ${useAccountTaxProfile ? 'text-emerald-700' : 'text-slate-400'}`}>
+                                    Use Account Composition
+                                </span>
+                                <div className="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in">
+                                    <input 
+                                        type="checkbox" 
+                                        name="taxToggle" 
+                                        id="taxToggle" 
+                                        className="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-2 border-slate-300 appearance-none cursor-pointer transition-all duration-300"
+                                        checked={useAccountTaxProfile}
+                                        onChange={() => setUseAccountTaxProfile(!useAccountTaxProfile)}
+                                    />
+                                    <label htmlFor="taxToggle" className={`toggle-label block overflow-hidden h-4 rounded-full cursor-pointer transition-colors duration-300 ${useAccountTaxProfile ? 'bg-emerald-500' : 'bg-slate-300'}`}></label>
+                                </div>
+                            </div>
+
+                            {/* Editable Tax Inputs */}
+                            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-emerald-100 shadow-sm">
+                                <div className="flex items-center gap-1">
+                                    <span className="text-[9px] font-bold text-emerald-600 uppercase">Effective Tax:</span>
+                                    <div className="flex items-center focus-within:ring-1 focus-within:ring-emerald-400 rounded">
+                                        <input
+                                            type="text"
+                                            value={formatRaw(data.estIncomeTax)}
+                                            onChange={(e) => handleNumericInput('estIncomeTax', e.target.value, true)}
+                                            className="w-7 text-xs font-black text-right bg-transparent border-none focus:ring-0 p-0 text-slate-800"
+                                        />
+                                        <span className="text-[9px] font-bold text-emerald-600">%</span>
+                                    </div>
+                                </div>
+                                <div className="w-px h-3 bg-emerald-200 mx-1"></div>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-[9px] font-bold text-emerald-600 uppercase">Cap Gains:</span>
+                                    <div className="flex items-center focus-within:ring-1 focus-within:ring-emerald-400 rounded">
+                                        <input
+                                            type="text"
+                                            value={formatRaw(data.estCapGainsTax)}
+                                            onChange={(e) => handleNumericInput('estCapGainsTax', e.target.value, true)}
+                                            className="w-7 text-xs font-black text-right bg-transparent border-none focus:ring-0 p-0 text-slate-800"
+                                        />
+                                        <span className="text-[9px] font-bold text-emerald-600">%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Inflation Dropdown */}
+                            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-emerald-100 shadow-sm">
+                                <label className="text-[9px] font-bold text-emerald-600 uppercase whitespace-nowrap">Adjust to:</label>
+                                <select 
+                                    className="bg-transparent text-xs font-bold text-slate-700 border-none focus:ring-0 p-0 cursor-pointer"
+                                    value={spendableBaseYear}
+                                    onChange={(e) => setSpendableBaseYear(e.target.value)}
+                                >
+                                    <option value="nominal">Today's $</option>
+                                    {[...data.years].sort((a,b) => b.year - a.year).map(y => (
+                                        <option key={y.id} value={y.year}>{y.year} $</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* New Chart: Portfolio Composition */}
+                    {historicalChartData.length === 1 && (
+                        <div className="mb-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center h-32">
+                            <div className="text-center">
+                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-center gap-2">
+                                    <Icon name="Layers" size={14} className="text-blue-500" /> Portfolio Composition
+                                </div>
+                                <div className="text-xs font-bold text-slate-400">Add a second year to see composition trends</div>
+                            </div>
+                        </div>
+                    )}
+                    {historicalChartData.length > 1 && (
+                        <div className="mb-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-[500px] relative">
+                             <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Icon name="Layers" size={14} className="text-blue-500" /> Portfolio Composition
+                                </h3>
+                                
+                                {/* Header Controls */}
+                                <div className="flex items-center gap-4">
+                                     {/* Account Filter Dropdown */}
+                                     <div className="flex items-center gap-2">
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase">Account:</span>
+                                        <select 
+                                            className="bg-slate-50 text-[9px] font-bold text-slate-700 rounded px-2 py-1 border border-slate-200 focus:ring-1 focus:ring-blue-500"
+                                            value={graphAccountFilter}
+                                            onChange={(e) => setGraphAccountFilter(e.target.value)}
+                                        >
+                                            <option value="all">All Accounts</option>
+                                            {uniqueAccountNames.map(name => (
+                                                <option key={name} value={name}>{name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* View Toggle */}
+                                    <div className="bg-slate-100 p-0.5 rounded-lg flex text-[9px] font-bold border border-slate-200">
+                                        <button 
+                                            onClick={() => setCompViewMode('growth')}
+                                            className={`px-2 py-1 rounded-md transition-colors ${compViewMode === 'growth' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        >
+                                            Growth
+                                        </button>
+                                        <button 
+                                            onClick={() => setCompViewMode('tax')}
+                                            className={`px-2 py-1 rounded-md transition-colors ${compViewMode === 'tax' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        >
+                                            Tax
+                                        </button>
+                                    </div>
+                                    
+                                    {compViewMode === 'growth' ? (
+                                        <div className="flex gap-3 text-[10px] font-bold">
+                                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-blue-500 rounded-sm"></div> Principal</div>
+                                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-purple-500 rounded-sm"></div> Growth</div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-3 text-[10px] font-bold">
+                                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-stone-500 rounded-sm"></div> Real Estate</div>
+                                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-blue-500 rounded-sm"></div> Pre-Tax</div>
+                                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-amber-500 rounded-sm"></div> Taxable</div>
+                                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm"></div> Roth</div>
+                                        </div>
+                                    )}
+                                </div>
+                             </div>
+
+                             <div className="relative w-full h-96 cursor-crosshair" onMouseMove={handleHistGraphHover} onMouseLeave={() => setHoveredHistNode(null)}>
+                                 {(() => {
+                                     const maxHVal = Math.max(...historicalChartData.map(d => d.total));
+                                     if (maxHVal === 0) return null;
+                                     return (
+                                         <div className="w-full h-full relative">
+                                             {/* Absolute Container for SVG to avoid Y-Axis Overlap */}
+                                             <div className="absolute left-16 right-2 top-0 bottom-0">
+                                                 <svg viewBox={`0 0 ${historicalChartData.length - 1} 100`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                                     
+                                                     {compViewMode === 'growth' ? (
+                                                         <React.Fragment>
+                                                              {/* Principal Area (Blue) */}
+                                                             <path 
+                                                                 d={`M ${historicalChartData.map((d, i) => `${i} ${100 - (d.principal / maxHVal) * 100}`).join(' L ')} L ${historicalChartData.length - 1} 100 L 0 100 Z`}
+                                                                 fill="#3b82f6" opacity="0.8"
+                                                             />
+                                                             
+                                                             {/* Growth Area (Purple) - Stacked on Principal, correctly closed */}
+                                                             <path 
+                                                                 d={`M ${historicalChartData.map((d, i) => `${i} ${100 - (d.total / maxHVal) * 100}`).join(' L ')} L ${historicalChartData.length - 1} ${100 - (historicalChartData[historicalChartData.length - 1].principal / maxHVal) * 100} L ${historicalChartData.map((d, i) => `${historicalChartData.length - 1 - i} ${100 - (historicalChartData[historicalChartData.length - 1 - i].principal / maxHVal) * 100}`).join(' L ')} Z`}
+                                                                 fill="#a855f7" opacity="0.8"
+                                                             />
+                                                         </React.Fragment>
+                                                     ) : (
+                                                         <React.Fragment>
+                                                             {/* Real Estate Area (Stone) - Base Layer */}
+                                                             <path 
+                                                                 d={`M ${historicalChartData.map((d, i) => `${i} ${100 - (d.realEstate / maxHVal) * 100}`).join(' L ')} L ${historicalChartData.length - 1} 100 L 0 100 Z`}
+                                                                 fill="#78716c" opacity="0.8"
+                                                             />
+
+                                                             {/* Pre-Tax Area (Blue) - Layer 2 */}
+                                                             <path 
+                                                                 d={`
+                                                                     M ${historicalChartData.map((d, i) => `${i} ${100 - ((d.realEstate + d.preTax) / maxHVal) * 100}`).join(' L ')} 
+                                                                     L ${historicalChartData.length - 1} ${100 - (historicalChartData[historicalChartData.length - 1].realEstate / maxHVal) * 100} 
+                                                                     ${historicalChartData.map((d, i) => `${i} ${100 - (d.realEstate / maxHVal) * 100}`).reverse().join(' L ')} 
+                                                                     Z
+                                                                 `}
+                                                                 fill="#3b82f6" opacity="0.8"
+                                                             />
+                                                             
+                                                             {/* Taxable Area (Amber) - Layer 3 */}
+                                                             <path 
+                                                                 d={`
+                                                                     M ${historicalChartData.map((d, i) => `${i} ${100 - ((d.realEstate + d.preTax + d.taxable) / maxHVal) * 100}`).join(' L ')} 
+                                                                     L ${historicalChartData.length - 1} ${100 - ((historicalChartData[historicalChartData.length - 1].realEstate + historicalChartData[historicalChartData.length - 1].preTax) / maxHVal) * 100} 
+                                                                     ${historicalChartData.map((d, i) => `${i} ${100 - ((d.realEstate + d.preTax) / maxHVal) * 100}`).reverse().join(' L ')} 
+                                                                     Z
+                                                                 `}
+                                                                 fill="#f59e0b" opacity="0.8"
+                                                             />
+                                                             
+                                                             {/* Roth Area (Emerald) - Top Layer */}
+                                                             <path 
+                                                                 d={`
+                                                                     M ${historicalChartData.map((d, i) => `${i} ${100 - (d.total / maxHVal) * 100}`).join(' L ')} 
+                                                                     L ${historicalChartData.length - 1} ${100 - ((historicalChartData[historicalChartData.length - 1].realEstate + historicalChartData[historicalChartData.length - 1].preTax + historicalChartData[historicalChartData.length - 1].taxable) / maxHVal) * 100} 
+                                                                     ${historicalChartData.map((d, i) => `${i} ${100 - ((d.realEstate + d.preTax + d.taxable) / maxHVal) * 100}`).reverse().join(' L ')} 
+                                                                     Z
+                                                                 `}
+                                                                 fill="#10b981" opacity="0.8"
+                                                             />
+                                                         </React.Fragment>
+                                                     )}
+
+                                                     {/* Total Balance Line (Dark Overlay) */}
+                                                     <path 
+                                                         d={`M ${historicalChartData.map((d, i) => `${i} ${100 - (d.total / maxHVal) * 100}`).join(' L ')}`} 
+                                                         fill="none" 
+                                                         stroke="#475569" 
+                                                         strokeWidth="2" 
+                                                         vectorEffect="non-scaling-stroke"
+                                                     />
+
+                                                     {/* Tooltip Line */}
+                                                     {hoveredHistNode && (() => {
+                                                         const idx = historicalChartData.findIndex(h => h.year === hoveredHistNode.year);
+                                                         return (
+                                                             <line 
+                                                                 x1={idx} y1="0" x2={idx} y2="100" 
+                                                                 stroke="#334155" 
+                                                                 strokeWidth="2" 
+                                                                 strokeDasharray="4 4" 
+                                                                 vectorEffect="non-scaling-stroke" 
+                                                                 style={{filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.5))'}}
+                                                             />
+                                                         )
+                                                     })()}
+
+                                                 </svg>
+
+                                                 {/* Hover Tooltip - Smart Positioning */}
+                                                 {hoveredHistNode && (
+                                                     <div 
+                                                         className="absolute bg-white text-slate-700 p-2 rounded-lg text-[10px] shadow-lg z-20 border border-slate-200 pointer-events-none tooltip-active"
+                                                         style={{
+                                                             left: `${(historicalChartData.findIndex(h => h.year === hoveredHistNode.year) / (historicalChartData.length - 1)) * 100}%`,
+                                                             top: '10%',
+                                                             transform: historicalChartData.findIndex(h => h.year === hoveredHistNode.year) > historicalChartData.length / 2 
+                                                                 ? 'translateX(calc(-100% - 10px))' 
+                                                                 : 'translateX(10px)'
+                                                         }}
+                                                     >
+                                                         <div className="font-bold border-b border-slate-100 pb-1 mb-1">{hoveredHistNode.year}</div>
+                                                         
+                                                         {compViewMode === 'growth' ? (
+                                                             <React.Fragment>
+                                                                 <div className="flex justify-between gap-3 text-blue-600">
+                                                                     <span>Principal:</span>
+                                                                     <span>{formatShort(hoveredHistNode.principal)} ({((hoveredHistNode.principal/hoveredHistNode.total)*100).toFixed(1)}%)</span>
+                                                                 </div>
+                                                                 <div className="flex justify-between gap-3 text-purple-600">
+                                                                     <span>Growth:</span>
+                                                                     <span>{formatShort(hoveredHistNode.growth)} ({((hoveredHistNode.growth/hoveredHistNode.total)*100).toFixed(1)}%)</span>
+                                                                 </div>
+                                                             </React.Fragment>
+                                                         ) : (
+                                                             <React.Fragment>
+                                                                 {hoveredHistNode.roth > 0 && (
+                                                                     <div className="flex justify-between gap-3 text-emerald-600">
+                                                                         <span>Roth:</span>
+                                                                         <span>{formatShort(hoveredHistNode.roth)} ({((hoveredHistNode.roth/hoveredHistNode.total)*100).toFixed(1)}%)</span>
+                                                                     </div>
+                                                                 )}
+                                                                 {hoveredHistNode.taxable > 0 && (
+                                                                     <div className="flex justify-between gap-3 text-amber-600">
+                                                                         <span>Taxable:</span>
+                                                                         <span>{formatShort(hoveredHistNode.taxable)} ({((hoveredHistNode.taxable/hoveredHistNode.total)*100).toFixed(1)}%)</span>
+                                                                     </div>
+                                                                 )}
+                                                                 {hoveredHistNode.preTax > 0 && (
+                                                                     <div className="flex justify-between gap-3 text-blue-600">
+                                                                         <span>Pre-Tax:</span>
+                                                                         <span>{formatShort(hoveredHistNode.preTax)} ({((hoveredHistNode.preTax/hoveredHistNode.total)*100).toFixed(1)}%)</span>
+                                                                     </div>
+                                                                 )}
+                                                                 {hoveredHistNode.realEstate > 0 && (
+                                                                     <div className="flex justify-between gap-3 text-stone-500">
+                                                                         <span>Real Estate:</span>
+                                                                         <span>{formatShort(hoveredHistNode.realEstate)} ({((hoveredHistNode.realEstate/hoveredHistNode.total)*100).toFixed(1)}%)</span>
+                                                                     </div>
+                                                                 )}
+                                                             </React.Fragment>
+                                                         )}
+                                                         
+                                                         <div className="flex justify-between gap-3 font-bold text-slate-800 border-t border-slate-100 pt-1 mt-1"><span>Total:</span><span>{formatShort(hoveredHistNode.total)}</span></div>
+                                                         {/* Annual Change — hide for first year since no prior year exists */}
+                                                         {hoveredHistNode.year !== historicalChartData[0].year && (
+                                                             <div className={`flex justify-between gap-3 font-bold pt-1 ${hoveredHistNode.change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                 <span>YoY Change:</span>
+                                                                 <span>{hoveredHistNode.change >= 0 ? '+' : ''}{formatShort(hoveredHistNode.change)} ({hoveredHistNode.changePercent >= 0 ? '+' : ''}{hoveredHistNode.changePercent.toFixed(1)}%)</span>
+                                                             </div>
+                                                         )}
+                                                     </div>
+                                                 )}
+
+                                                 {/* X-Axis Labels (INSIDE the constrained container) */}
+                                                 <div className="absolute left-0 right-0 bottom-0 translate-y-full pt-2 flex justify-between text-xs text-slate-400 font-bold">
+                                                     {historicalChartData.map((d, i) => (
+                                                         // Show ALL years if count < 20, else show every 5th
+                                                         (historicalChartData.length < 20 || i === 0 || i === historicalChartData.length - 1 || i % 5 === 0) && 
+                                                         <span key={d.year} style={{
+                                                             position: 'absolute',
+                                                             left: `${(i / (historicalChartData.length - 1)) * 100}%`,
+                                                             transform: 'translateX(-50%)'
+                                                         }}>{d.year}</span>
+                                                     ))}
+                                                 </div>
+                                             </div>
+
+                                             {/* Y Axis Labels for Net Worth (8 increments) — maxHVal reused from above */}
+                                             <div className="absolute left-0 top-0 bottom-0 w-16 flex flex-col justify-between text-xs text-slate-500 font-bold text-right pr-2 pointer-events-none bg-white/80 backdrop-blur-sm rounded-r-lg">
+                                                 <span>{formatShort(maxHVal)}</span>
+                                                 <span>{formatShort(maxHVal * 0.875)}</span>
+                                                 <span>{formatShort(maxHVal * 0.75)}</span>
+                                                 <span>{formatShort(maxHVal * 0.625)}</span>
+                                                 <span>{formatShort(maxHVal * 0.5)}</span>
+                                                 <span>{formatShort(maxHVal * 0.375)}</span>
+                                                 <span>{formatShort(maxHVal * 0.25)}</span>
+                                                 <span>{formatShort(maxHVal * 0.125)}</span>
+                                                 <span>0</span>
+                                             </div>
+                                         </div>
+                                     );
+                                 })()}
+                             </div>
+                             
+                             {/* Spacer for X-Axis Labels */}
+                             <div className="h-4"></div> 
+                        </div>
+                    )}
+
+                    {/* Lifetime Badge Section with Filter - MOVED HERE */}
+                    <div className="mb-8">
+                         <div className="flex justify-between items-center mb-4">
+                             <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Icon name="History" size={14} /> Lifetime Performance</h2>
+                             <div className="flex items-center gap-2">
+                                 <span className="text-[9px] font-bold text-slate-400 uppercase">Filter:</span>
+                                 <select 
+                                     className="bg-slate-50 text-[9px] font-bold text-slate-700 rounded px-2 py-1 border border-slate-200 focus:ring-1 focus:ring-blue-500"
+                                     value={lifetimeAccountFilter}
+                                     onChange={(e) => setLifetimeAccountFilter(e.target.value)}
+                                 >
+                                     <option value="all">All Accounts</option>
+                                     {uniqueAccountNames.map(name => (
+                                         <option key={name} value={name}>{name}</option>
+                                     ))}
+                                 </select>
+                             </div>
+                          </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="bg-blue-50 border border-blue-100 p-5 rounded-3xl shadow-sm">
+                                <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Total Contributions</div>
+                                <div className="text-2xl font-black text-blue-700">{formatCurrency(lifetimeMetrics.totalSaved)}</div>
+                                <div className="flex gap-3 mt-1 text-[10px] font-bold text-blue-500/80">
+                                    <span>P: {formatCurrency(lifetimeMetrics.totalPers)}</span>
+                                    <span>E: {formatCurrency(lifetimeMetrics.totalEmp)}</span>
+                                </div>
+                            </div>
+                            <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-3xl shadow-sm">
+                                <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Market Gain</div>
+                                <div className={`text-2xl font-black ${lifetimeMetrics.totalGrowth >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                    {lifetimeMetrics.totalGrowth >= 0 ? '+' : ''}{formatCurrency(lifetimeMetrics.totalGrowth)}
+                                </div>
+                                <div className="mt-1 text-[10px] font-bold text-emerald-500/80 uppercase tracking-tight">Across all years</div>
+                            </div>
+                            <div className={`p-5 rounded-3xl shadow-sm border transition-colors duration-300 ${lifetimeMetrics.avgRealReturn >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+                                <div className={`text-[10px] font-black uppercase tracking-widest mb-2 ${lifetimeMetrics.avgRealReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>Avg Annual Return (Weighted)</div>
+                                <div className={`text-2xl font-black ${lifetimeMetrics.avgRealReturn >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                    {(lifetimeMetrics.avgRealReturn * 100).toFixed(2)}% <span className="text-sm opacity-70">Real</span>
+                                </div>
+                                <div className={`text-sm font-bold mt-1 opacity-80 ${lifetimeMetrics.avgRealReturn >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                    {(lifetimeMetrics.avgNominalReturn * 100).toFixed(2)}% <span className="text-[10px] uppercase">Nominal</span>
+                                </div>
+                            </div>
+                            <div className="bg-amber-50 border border-amber-100 p-5 rounded-3xl shadow-sm relative">
+                                <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 flex justify-between items-center">
+                                    Historical Inflation
+                                    <select 
+                                        className="bg-amber-100 text-[9px] rounded px-1 py-0.5 border-none focus:ring-0 text-amber-800 font-bold"
+                                        value={inflationBaseYear || ''}
+                                        onChange={(e) => setInflationBaseYear(e.target.value)}
+                                    >
+                                        <option value="">Start</option>
+                                        {[...data.years].sort((a,b) => b.year - a.year).map(y => (
+                                            <option key={y.id} value={y.year}>{y.year}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="text-2xl font-black text-amber-700">
+                                    {((lifetimeMetrics.avgInflation || 0) * 100).toFixed(2)}% <span className="text-xs font-bold text-amber-500/60">Avg Annual</span>
+                                </div>
+                                <div className="mt-1 text-[10px] font-bold text-amber-600/80 uppercase tracking-tight">
+                                    Total since {lifetimeMetrics.baseYear}: {(lifetimeMetrics.totalCumulativeInflation * 100).toFixed(1)}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Ledger Header */}
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-4">
+                             <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Icon name="Calendar" size={14} /> Annual Portfolio Ledger</h2>
+                        </div>
+                        <div className="flex gap-2">
+                             <button onClick={() => setExpandedYears({})} className="bg-white hover:bg-slate-600 text-slate-600 px-4 py-2 rounded-lg text-xs font-black border border-slate-200 shadow-sm flex items-center gap-2">
+                                <Icon name="Minus" size={14} /> Collapse All
+                            </button>
+                            <button onClick={addYear} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 shadow-md">
+                                <Icon name="Plus" size={16} /> Log Year
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Annual List */}
+                    <div className="space-y-4">
+                        {processedYearData.map((yearData) => {
+                            const { metrics } = yearData;
+                            const isExpanded = expandedYears[yearData.id];
+                            return (
+                                <div key={yearData.id} className="relative">
+                                    <div className="absolute right-0 top-0 h-full flex items-start pt-2 pr-2 z-20 pointer-events-none">
+                                        <button 
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                if (confirm(`Permanently delete the entire log for year ${yearData.year}?`)) {
+                                                    setData(prev => ({ ...prev, years: prev.years.filter(y => y.id !== yearData.id) }));
+                                                }
+                                            }} 
+                                            className="pointer-events-auto p-3 text-slate-300 hover:text-white hover:bg-rose-500 bg-white border border-slate-200 rounded-xl transition-all shadow-sm flex items-center justify-center h-[50px] w-[50px] group"
+                                            title={`Delete ${yearData.year}`}
+                                        >
+                                            <Icon name="Trash2" size={20} className="group-hover:scale-110 transition-transform" />
+                                        </button>
+                                    </div>
+                                    <div className={`mr-14 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all ${isExpanded ? 'ring-2 ring-blue-100 ring-offset-2' : ''}`}>
+                                    <div onClick={() => setExpandedYears(p => ({ ...p, [yearData.id]: !isExpanded }))} className="p-4 cursor-pointer hover:bg-slate-50 flex items-center gap-4 relative bg-white z-10">
+                                        <Icon name={isExpanded ? "ChevronUp" : "ChevronDown"} size={20} className="text-slate-400" />
+                                        <div className="flex flex-col">
+                                            <input 
+                                                type="number"
+                                                value={yearData.year}
+                                                onClick={(e) => e.stopPropagation()}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setData(prev => ({
+                                                        ...prev,
+                                                        years: prev.years.map(y => y.id === yearData.id ? { ...y, year: val === "" ? 0 : parseFloat(val) || 0 } : y)
+                                                    }));
+                                                }}
+                                                className="text-xl font-black text-slate-800 bg-transparent border-none focus:ring-0 p-0 w-20"
+                                            />
+                                        </div>
+                                        
+                                        <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-2 text-sm font-bold">
+                                            <div className="flex flex-col flex h-full justify-between bg-blue-50 rounded-lg px-2 py-1.5 border border-blue-100">
+                                                <span className="text-[11px] text-blue-400 uppercase tracking-tight">Total Contributions</span>
+                                                <span className="text-blue-700 text-lg font-black leading-tight">{formatCurrency(metrics.totalSaved)}</span>
+                                            </div>
+                                            <div className={`flex flex-col flex h-full justify-between rounded-lg px-2 py-1.5 border ${metrics.marketGrowth >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+                                                <span className={`text-[11px] uppercase tracking-tight ${metrics.marketGrowth >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>Market Gain</span>
+                                                <span className={`text-lg font-black leading-tight ${metrics.marketGrowth >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{formatCurrency(metrics.marketGrowth)}</span>
+                                            </div>
+                                            
+                                            <div className={`flex flex-col flex h-full justify-between rounded-lg px-2 py-1.5 border ${metrics.realReturn >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+                                                <span className={`text-[11px] uppercase tracking-tight ${metrics.realReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>Real Return</span>
+                                                <div className="flex items-baseline gap-1.5">
+                                                    <span className={`text-lg font-black leading-tight ${metrics.realReturn >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{(metrics.realReturn * 100).toFixed(2)}%</span>
+                                                    <span className={`text-[10px] font-bold ${metrics.nominalReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.nominalReturn >= 0 ? '+' : ''}{(metrics.nominalReturn * 100).toFixed(2)}% nominal</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col flex h-full justify-between bg-cyan-50 rounded-lg px-2 py-1.5 border border-cyan-100">
+                                                <span className="text-[11px] text-cyan-500 uppercase tracking-tight">Savings Rate</span>
+                                                <span className="text-cyan-700 text-lg font-black leading-tight">{metrics.savingsRate.toFixed(1)}%</span>
+                                            </div>
+
+                                            <div className="flex flex-col flex h-full justify-between bg-slate-50 rounded-lg px-2 py-1.5 border border-slate-100">
+                                                <span className="text-[11px] text-slate-400 uppercase tracking-tight">End Total</span>
+                                                <span className="text-slate-900 text-lg font-black leading-tight">{formatCurrency(metrics.totalEnd)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {isExpanded && (
+                                        <div className="p-4 bg-slate-50/50 border-t border-slate-100 overflow-x-auto relative z-0">
+                                            <div className="mb-4 flex items-center gap-4 w-full">
+                                                <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase">Annual Inflation</label>
+                                                    <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+                                                        <input 
+                                                            type="text"
+                                                            value={yearData.inflationRate === 0 && yearData.inflationRate !== null ? "" : formatRaw(yearData.inflationRate)}
+                                                            placeholder="0.0"
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                if (val === "" || val === "-" || val.endsWith(".")) {
+                                                                    updateYearData(yearData.id, 'inflationRate', val);
+                                                                } else {
+                                                                    const num = parseFloat(val);
+                                                                    updateYearData(yearData.id, 'inflationRate', isNaN(num) ? 0 : num);
+                                                                }
+                                                            }}
+                                                            className="w-8 text-sm font-black bg-transparent border-none focus:ring-0 p-0 text-slate-800"
+                                                        />
+                                                        <span className="text-xs font-bold text-slate-400">%</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase">Gross Income</label>
+                                                    <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+                                                        <span className="text-xs font-bold text-slate-400">$</span>
+                                                        <input 
+                                                            type="text"
+                                                            value={yearData.grossIncome === 0 ? "" : formatNum(yearData.grossIncome)}
+                                                            placeholder="0"
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/[^0-9.-]+/g, "");
+                                                                updateYearData(yearData.id, 'grossIncome', val === "" ? 0 : parseFloat(val));
+                                                            }}
+                                                            className="w-24 text-sm font-black bg-transparent border-none focus:ring-0 p-0 text-slate-800"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <table className="w-full text-[11px] min-w-[800px]">
+                                                <thead>
+                                                    <tr className="text-slate-400 uppercase font-black text-[9px] border-b border-slate-200">
+                                                        <th className="text-left pb-2 w-1/6">Account Name</th>
+                                                        <th className="text-left pb-2 w-28">Type</th>
+                                                        <th className="text-left pb-2 w-28">Beg Bal</th>
+                                                        <th className="text-left pb-2 w-28 text-slate-900">End Bal</th>
+                                                        <th className="text-left pb-2 w-28 text-blue-600">Personal</th>
+                                                        <th className="text-left pb-2 w-28 text-indigo-600">Employer</th>
+                                                        <th className="text-right pb-2 w-28">Gain/Loss</th>
+                                                        <th className="text-right pb-2 w-20">Nominal</th>
+                                                        <th className="text-right pb-2 w-20">Real</th>
+                                                        <th className="w-10"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {yearData.accounts.map(acc => {
+                                                        const accountSaved = acc.persContrib + acc.empContrib;
+                                                        const accountGain = acc.endBalance - (acc.begBalance + accountSaved);
+                                                        const accountNominal = (acc.begBalance + (accountSaved / 2)) === 0 ? 0 : accountGain / (acc.begBalance + (accountSaved / 2));
+                                                        const accountReal = ((1 + accountNominal) / (1 + (yearData.inflationRate / 100))) - 1;
+
+                                                        return (
+                                                            <tr key={acc.id} className="border-b border-slate-100 group">
+                                                                <td className="py-2">
+                                                                    <input 
+                                                                        className="bg-transparent font-bold border-none focus:ring-0 p-0 w-full"
+                                                                        value={acc.name}
+                                                                        onChange={(e) => updateAccount(yearData.id, acc.id, 'name', e.target.value)}
+                                                                    />
+                                                                </td>
+                                                                <td className="py-2">
+                                                                    <div className="flex gap-2 items-center">
+                                                                        <select
+                                                                            className="bg-transparent font-bold text-slate-500 border-none focus:ring-0 p-0 w-full text-[10px]"
+                                                                            value={acc.type || 'Pre-Tax'}
+                                                                            onChange={(e) => updateAccount(yearData.id, acc.id, 'type', e.target.value)}
+                                                                        >
+                                                                            <option value="Pre-Tax">Pre-Tax</option>
+                                                                            <option value="Roth">Roth</option>
+                                                                            <option value="Taxable">Taxable</option>
+                                                                            <option value="Hybrid">Hybrid</option>
+                                                                            <option value="Real Estate">Real Estate</option>
+                                                                        </select>
+                                                                        {acc.type === 'Hybrid' && (
+                                                                            <div className="flex items-center gap-0.5 bg-slate-100 px-1 rounded">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    className="bg-transparent w-6 text-[10px] font-bold text-center p-0 border-none focus:ring-0"
+                                                                                    placeholder="50"
+                                                                                    value={acc.rothSplit || 0}
+                                                                                    onChange={(e) => updateAccount(yearData.id, acc.id, 'rothSplit', e.target.value)}
+                                                                                />
+                                                                                <span className="text-[8px] text-slate-400">%R</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-2 text-left">
+                                                                    <div className="currency-input-wrapper justify-start w-full">
+                                                                        <span>$</span>
+                                                                        <input 
+                                                                            type="text"
+                                                                            className="bg-transparent text-left border-none focus:ring-0 p-0 font-bold w-full"
+                                                                            value={formatNum(acc.begBalance)}
+                                                                            onChange={(e) => updateAccount(yearData.id, acc.id, 'begBalance', e.target.value.replace(/[^0-9.-]+/g, ""))}
+                                                                        />
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-2 text-left font-black text-slate-900">
+                                                                    <div className="currency-input-wrapper justify-start w-full">
+                                                                        <span>$</span>
+                                                                        <input 
+                                                                            type="text"
+                                                                            className="bg-transparent text-left border-none focus:ring-0 p-0 font-black w-full"
+                                                                            value={formatNum(acc.endBalance)}
+                                                                            onChange={(e) => updateAccount(yearData.id, acc.id, 'endBalance', e.target.value.replace(/[^0-9.-]+/g, ""))}
+                                                                        />
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-2 text-left text-blue-600">
+                                                                    <div className="currency-input-wrapper justify-start w-full">
+                                                                        <span>$</span>
+                                                                        <input 
+                                                                            type="text"
+                                                                            className="bg-transparent text-left border-none focus:ring-0 p-0 font-bold w-full text-blue-600"
+                                                                            value={formatNum(acc.persContrib)}
+                                                                            onChange={(e) => updateAccount(yearData.id, acc.id, 'persContrib', e.target.value.replace(/[^0-9.-]+/g, ""))}
+                                                                        />
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-2 text-left text-indigo-600">
+                                                                    <div className="currency-input-wrapper justify-start w-full">
+                                                                        <span>$</span>
+                                                                        <input 
+                                                                            type="text"
+                                                                            className="bg-transparent text-left border-none focus:ring-0 p-0 font-bold w-full text-indigo-600"
+                                                                            value={formatNum(acc.empContrib)}
+                                                                            onChange={(e) => updateAccount(yearData.id, acc.id, 'empContrib', e.target.value.replace(/[^0-9.-]+/g, ""))}
+                                                                        />
+                                                                    </div>
+                                                                </td>
+                                                                <td className={`py-2 text-right font-bold ${accountGain >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                                    {formatCurrency(accountGain)}
+                                                                </td>
+                                                                <td className="py-2 text-right text-slate-500">{(accountNominal * 100).toFixed(1)}%</td>
+                                                                <td className={`py-2 text-right font-black ${accountReal >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                    {(accountReal * 100).toFixed(1)}%
+                                                                </td>
+                                                                <td className="py-2 text-center">
+                                                                    {confirmingDelete === acc.id ? (
+                                                                        <div className="flex items-center gap-1 justify-center">
+                                                                            <button
+                                                                                onClick={() => deleteAccount(yearData.id, acc.id)}
+                                                                                className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-rose-500 text-white rounded hover:bg-rose-600 transition-colors"
+                                                                            >
+                                                                                Delete
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => setConfirmingDelete(null)}
+                                                                                className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 rounded hover:bg-slate-200 transition-colors"
+                                                                            >
+                                                                                Cancel
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <button
+                                                                            onClick={() => setConfirmingDelete(acc.id)}
+                                                                            className="p-1 hover:bg-rose-50 text-slate-300 hover:text-rose-500 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                                                        >
+                                                                            <Icon name="X" size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr className="border-t-2 border-slate-200 bg-slate-100/50 font-black text-slate-900">
+                                                        <td className="py-3 px-2 text-[10px] uppercase">Annual Totals</td>
+                                                        <td className="py-3"></td>
+                                                        <td className="py-3 text-left pl-2">{formatCurrency(metrics.totalBeg)}</td>
+                                                        <td className="py-3 text-left pl-2 font-black">{formatCurrency(metrics.totalEnd)}</td>
+                                                        <td className="py-3 text-left pl-2 text-blue-600">{formatCurrency(metrics.totalPers)}</td>
+                                                        <td className="py-3 text-left pl-2 text-indigo-600">{formatCurrency(metrics.totalEmp)}</td>
+                                                        <td className={`py-3 text-right ${metrics.marketGrowth >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                            {formatCurrency(metrics.marketGrowth)}
+                                                        </td>
+                                                        <td className="py-3 text-right text-slate-600">{(metrics.nominalReturn * 100).toFixed(1)}%</td>
+                                                        <td className={`py-3 text-right ${metrics.realReturn >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                            {(metrics.realReturn * 100).toFixed(1)}%
+                                                        </td>
+                                                        <td></td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                            <div className="mt-4 flex justify-end items-center">
+                                                <button 
+                                                    onClick={() => {
+                                                        setData(prev => ({
+                                                            ...prev,
+                                                            years: prev.years.map(y => y.id === yearData.id ? {
+                                                                ...y,
+                                                                accounts: [...y.accounts, { id: Math.random().toString(36).substr(2, 9), name: 'New Account', begBalance: 0, persContrib: 0, empContrib: 0, endBalance: 0, type: 'Pre-Tax' }]
+                                                            } : y)
+                                                        }));
+                                                    }}
+                                                    className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                                >
+                                                    <Icon name="Plus" size={14} /> Add Account
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <footer className="mt-auto py-12 text-center text-slate-300 text-[10px] font-black uppercase tracking-[0.2em] bg-slate-50 border-t border-slate-100">
+                        WealthPulse Local • Zero Cloud Storage
+                    </footer>
+
+                    {/* Undo Toast rendered via portal to escape overflow:hidden ancestors */}
+                    {deletedAccount && createPortal(
+                        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-xl text-xs font-bold z-50">
+                            <Icon name="Trash2" size={14} className="text-slate-400" />
+                            <span>Account deleted</span>
+                            <button
+                                onClick={undoDelete}
+                                className="ml-2 px-3 py-1 bg-blue-500 hover:bg-blue-400 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors"
+                            >
+                                Undo
+                            </button>
+                            <button
+                                onClick={() => setDeletedAccount(null)}
+                                className="text-slate-400 hover:text-white transition-colors"
+                            >
+                                <Icon name="X" size={12} />
+                            </button>
+                        </div>,
+                        document.body
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

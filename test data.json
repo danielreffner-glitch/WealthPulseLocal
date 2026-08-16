@@ -1,0 +1,176 @@
+{
+  "retirementGoal": 2200000,
+  "retirementYear": 2060,
+  "retirementDuration": 25,
+  "monthlyContrib": 2500,
+  "annualRetirementSpend": 88000,
+  "annualRetirementIncome": 10000,
+  "estPreRetirementReturn": 10,
+  "estPostRetirementReturn": 5,
+  "estInflation": 3.5,
+  "estIncomeTax": 20,
+  "estCapGainsTax": 15,
+  "safeWithdrawalRate": 4,
+  "manualNestEgg": 83527,
+  "years": [
+    {
+      "id": "initial-year-id",
+      "year": 2021,
+      "inflationRate": 7,
+      "grossIncome": 80000,
+      "accounts": [
+        {
+          "id": "1",
+          "name": "Roth IRA",
+          "begBalance": 0,
+          "persContrib": 7230,
+          "empContrib": 0,
+          "endBalance": 7330,
+          "type": "Roth",
+          "rothSplit": 0
+        },
+        {
+          "id": "gd38xlrq8",
+          "name": "401(k)",
+          "begBalance": 1468,
+          "persContrib": 700,
+          "empContrib": 2000,
+          "endBalance": 4280,
+          "type": "Pre-Tax",
+          "rothSplit": 0
+        }
+      ]
+    },
+    {
+      "id": "pot3309y8",
+      "year": 2022,
+      "inflationRate": 6.5,
+      "grossIncome": 80000,
+      "accounts": [
+        {
+          "id": "ws3k4d25p",
+          "name": "Roth IRA",
+          "begBalance": 7330,
+          "persContrib": 6000,
+          "empContrib": 0,
+          "endBalance": 11641,
+          "type": "Roth",
+          "rothSplit": 0
+        },
+        {
+          "id": "lmgdb3f8v",
+          "name": "401(k)",
+          "begBalance": 4280,
+          "persContrib": 640,
+          "empContrib": 2000,
+          "endBalance": 5891,
+          "type": "Pre-Tax",
+          "rothSplit": 0
+        }
+      ]
+    },
+    {
+      "id": "5s4escblv",
+      "year": 2023,
+      "inflationRate": 3.4,
+      "grossIncome": 82500,
+      "accounts": [
+        {
+          "id": "50xaixh0m",
+          "name": "Roth IRA",
+          "begBalance": 11641,
+          "persContrib": 6500,
+          "empContrib": 0,
+          "endBalance": 21013,
+          "type": "Roth",
+          "rothSplit": 0
+        },
+        {
+          "id": "soi0dp6zm",
+          "name": "401(k)",
+          "begBalance": 5891,
+          "persContrib": 700,
+          "empContrib": 2000,
+          "endBalance": 9773,
+          "type": "Pre-Tax",
+          "rothSplit": 0
+        }
+      ]
+    },
+    {
+      "id": "vcilcm5gj",
+      "year": 2024,
+      "inflationRate": 2.9,
+      "grossIncome": 150000,
+      "accounts": [
+        {
+          "id": "4cub1dbn9",
+          "name": "Roth IRA",
+          "begBalance": 21013,
+          "persContrib": 7000,
+          "empContrib": 0,
+          "endBalance": 32649,
+          "type": "Roth",
+          "rothSplit": 0
+        },
+        {
+          "id": "tyjosc56l",
+          "name": "401(k)",
+          "begBalance": 9773,
+          "persContrib": 5305,
+          "empContrib": 2414,
+          "endBalance": 19206,
+          "type": "Hybrid",
+          "rothSplit": 2
+        }
+      ]
+    },
+    {
+      "id": "o5bklgcfa",
+      "year": 2025,
+      "inflationRate": 2.7,
+      "grossIncome": 165000,
+      "accounts": [
+        {
+          "id": "ovby4wszo",
+          "name": "Roth IRA",
+          "begBalance": 32649,
+          "persContrib": 7000,
+          "empContrib": 0,
+          "endBalance": 47007,
+          "type": "Roth",
+          "rothSplit": 0
+        },
+        {
+          "id": "n5vq7rgdw",
+          "name": "401(k)",
+          "begBalance": 19206,
+          "persContrib": 10000,
+          "empContrib": 3000,
+          "endBalance": 36520,
+          "type": "Hybrid",
+          "rothSplit": "14.1"
+        }
+      ]
+    },
+    {
+      "id": "kh0j2u9pm",
+      "year": 2020,
+      "inflationRate": 1.4,
+      "grossIncome": 50000,
+      "accounts": [
+        {
+          "id": "82kr5jou9",
+          "name": "401(k)",
+          "begBalance": 0,
+          "persContrib": 300,
+          "empContrib": 1000,
+          "endBalance": 1468,
+          "type": "Pre-Tax",
+          "rothSplit": 0
+        }
+      ]
+    }
+  ],
+  "estNominalReturn": 9
+}
